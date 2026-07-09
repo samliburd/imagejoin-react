@@ -1,10 +1,9 @@
-import {useRef, useState} from 'react';
+import { useRef, useState } from 'react';
 import './App.scss';
 import Controls from './components/controls/Controls';
 import ImageCanvas from './components/imagecanvas/ImageCanvas';
-import {type ImageItem, type Orientation} from './types';
+import { type ImageItem, type Orientation } from './types';
 import { Analytics } from '@vercel/analytics/react';
-
 
 function App() {
     // --- Debug logic ---
@@ -18,7 +17,10 @@ function App() {
     const [scaleToLargest, setScaleToLargest] = useState<boolean>(true);
     const [filename, setFilename] = useState<string>('');
 
-    // Ref to access the canvas for downloading
+    // NEW: States for width management
+    const [canvasWidth, setCanvasWidth] = useState<number>(0);
+    const [customWidth, setCustomWidth] = useState<string>('');
+
     const canvasRef = useRef<HTMLCanvasElement>(null!);
 
     const handleDownload = () => {
@@ -47,12 +49,20 @@ function App() {
                     setFilename={setFilename}
                     onDownload={handleDownload}
                     debug={showDebug}
+                    // NEW: Pass width props to Controls
+                    customWidth={customWidth}
+                    setCustomWidth={setCustomWidth}
+                    canvasWidth={canvasWidth}
                 />
                 <ImageCanvas
                     canvasRef={canvasRef}
                     images={images}
                     orientation={orientation}
                     scaleToLargest={scaleToLargest}
+                    // NEW: Pass width props to Canvas
+                    customWidth={customWidth}
+                    setCanvasWidth={setCanvasWidth}
+                    canvasWidth={canvasWidth}
                 />
             </main>
             <Analytics />

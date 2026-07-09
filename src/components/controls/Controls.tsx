@@ -1,6 +1,6 @@
 import type { ImageItem, Orientation } from '../../types';
-import ImageList from "../imagelist/ImageList.tsx";
-import FileControls from "../filecontrols/FileControls.tsx";
+import ImageList from "../imagelist/ImageList";
+import FileControls from "../filecontrols/FileControls";
 
 interface ControlsProps {
     images: ImageItem[];
@@ -13,15 +13,16 @@ interface ControlsProps {
     setFilename: (val: string) => void;
     onDownload: () => void;
     debug: boolean;
+    // NEW Props
+    customWidth: string;
+    setCustomWidth: (val: string) => void;
+    canvasWidth: number;
 }
 
 const Controls = (props: ControlsProps) => {
     return (
         <div id="controls" className="controls">
-            {/* Handles UI inputs, uploading, and downloading */}
             <FileControls {...props} />
-
-            {/* Handles drag/drop and array reordering */}
             <ImageList
                 images={props.images}
                 setImages={props.setImages}

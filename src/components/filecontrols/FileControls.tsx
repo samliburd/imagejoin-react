@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { type ImageItem, type Orientation } from '../../types';
 
-// Declare GTM dataLayer for TypeScript
 declare global {
     interface Window {
         dataLayer: any[];
@@ -28,42 +27,40 @@ interface FileControlsProps {
     setFilename: (val: string) => void;
     onDownload: () => void;
     debug: boolean;
+    // NEW Props
+    customWidth: string;
+    setCustomWidth: (val: string) => void;
+    canvasWidth: number;
 }
 
 const FileControls = ({
-                              images,
-                              setImages,
-                              orientation,
-                              setOrientation,
-                              scaleToLargest,
-                              setScaleToLargest,
-                              filename,
-                              setFilename,
-                              onDownload,
-                              debug
-                          }: FileControlsProps) => {
+                          images,
+                          setImages,
+                          orientation,
+                          setOrientation,
+                          scaleToLargest,
+                          setScaleToLargest,
+                          filename,
+                          setFilename,
+                          onDownload,
+                          debug,
+                          customWidth,
+                          setCustomWidth,
+                          canvasWidth
+                      }: FileControlsProps) => {
     const [isDebugMode, setIsDebugMode] = useState(false);
 
-    // --- Utilities ---
+    // ... (generateThumbnail and loadImage utilities stay exactly the same) ...
     const generateThumbnail = (img: HTMLImageElement, maxWidth = 100): string => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-
-        if (!ctx) return img.src; // Fallback just in case
-
-        // Calculate aspect ratio
-        const scale = Math.min(maxWidth / img.width, 1); // Prevent scaling UP small images
+        if (!ctx) return img.src;
+        const scale = Math.min(maxWidth / img.width, 1);
         const newWidth = img.width * scale;
         const newHeight = img.height * scale;
-
         canvas.width = newWidth;
         canvas.height = newHeight;
-
-        // Draw the image smaller
         ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
-        // Export as a highly compressed JPEG (0.5 quality)
-        // JPEGs are significantly smaller than PNGs for base64 thumbnails
         return canvas.toDataURL('image/jpeg', 0.5);
     };
 
@@ -71,13 +68,11 @@ const FileControls = ({
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
-                // Generate the thumbnail the moment the image loads into memory
                 const tinySrc = generateThumbnail(img, 100);
-
                 resolve({
                     id: crypto.randomUUID(),
                     src: src,
-                    thumbnailSrc: tinySrc, // Save it to the new property
+                    thumbnailSrc: tinySrc,
                     originalName: name,
                     width: img.width,
                     height: img.height,
@@ -89,11 +84,10 @@ const FileControls = ({
         });
     };
 
-    // --- Event Handlers ---
+    // ... (handleFileUpload, handleDebugToggle, handleOrientationChange stay exactly the same) ...
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
-
         try {
             const filePromises = Array.from(files).map(file => {
                 return new Promise<ImageItem>((resolve, reject) => {
@@ -109,7 +103,6 @@ const FileControls = ({
                     reader.readAsDataURL(file);
                 });
             });
-
             const loadedImages = await Promise.all(filePromises);
             setImages(loadedImages);
         } catch (error) {
@@ -121,7 +114,6 @@ const FileControls = ({
     const handleDebugToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const isChecked = e.target.checked;
         setIsDebugMode(isChecked);
-
         if (isChecked) {
             try {
                 const loaded = await Promise.all(TEST_IMAGES.map(src => loadImage(src, src.split('/').pop() || 'test')));
@@ -143,6 +135,9 @@ const FileControls = ({
         });
     };
 
+    // Derived state to check if user has inputted a valid custom width
+    const hasCustomWidth = customWidth.trim() !== '';
+
     return (
         <div id="FileControls">
             <label className="file-upload">
@@ -153,16 +148,6 @@ const FileControls = ({
                 </span>
             </label>
 
-            <div className="checkboxContainer">
-                <label htmlFor="scaleCheckbox">Resize to largest image</label>
-                <input
-                    type="checkbox"
-                    name="scaleCheckbox"
-                    id="scaleCheckbox"
-                    checked={scaleToLargest}
-                    onChange={(e) => setScaleToLargest(e.target.checked)}
-                />
-            </div>
 
             <div className="dropdownContainer">
                 <label htmlFor="orientationDropdown">Orientation:</label>
@@ -187,6 +172,31 @@ const FileControls = ({
                 </select>
             </div>
 
+
+
+            <div className="checkboxContainer" style={{ opacity: hasCustomWidth ? 0.5 : 1 }}>
+                <label htmlFor="scaleCheckbox">Resize to largest image</label>
+                <input
+                    type="checkbox"
+                    name="scaleCheckbox"
+                    id="scaleCheckbox"
+                    checked={scaleToLargest}
+                    disabled={hasCustomWidth} // NEW: Disable if width is hardcoded
+                    onChange={(e) => setScaleToLargest(e.target.checked)}
+                />
+            </div>
+            <label className="filenameInput" htmlFor="customWidth">
+                <span className="label-text">Width: </span>
+                <input
+                    type="number"
+                    name="customWidth"
+                    id="customWidth"
+                    min="1"
+                    placeholder={canvasWidth ? canvasWidth.toString() : 'Auto'}
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(e.target.value)}
+                />
+            </label>
             <label className="filenameInput" htmlFor="filename">
                 <span className="label-text">Filename: </span>
                 <input
