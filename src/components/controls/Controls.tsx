@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { type ImageItem, type Orientation } from '../../types';
+import {useEffect, useState, useRef} from 'react';
+import {type ImageItem, type Orientation} from '../../types';
 
 // Declare GTM dataLayer for TypeScript
 declare global {
@@ -9,12 +9,12 @@ declare global {
 }
 
 const TEST_IMAGES = [
-    'testimg/1.jpg',
-    'testimg/2.png',
+    'testimg/1.webp',
+    'testimg/2.webp',
     'testimg/rect.png',
     'testimg/rect2.png',
     'testimg/triangle.png',
-    'testimg/05063b2318e3dd0632eb34c1821f905db558b5cd17b32360ff517d2cfae15ec2.0.png',
+    'testimg/05063b2318e3dd0632eb34c1821f905db558b5cd17b32360ff517d2cfae15ec2.0.webp',
 ];
 
 interface ControlsProps {
@@ -63,6 +63,7 @@ const Controls = ({
             });
             img.onerror = () => reject(`Failed to load: ${name}`);
             img.src = src;
+
         });
     };
 
@@ -139,25 +140,42 @@ const Controls = ({
     };
 
     // --- Drag and Drop Logic ---
-    const handleDragStart = (index: number) => {
+// We can completely remove the dragOverItem ref!
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
         dragItem.current = index;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', index.toString());
     };
 
-    const handleDragEnter = (index: number) => {
-        dragOverItem.current = index;
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault(); // Crucial: Tells the browser "this is a valid drop target"
+        e.dataTransfer.dropEffect = 'move';
     };
 
-    const handleDragEnd = () => {
-        if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
+// NEW: Handle the actual reordering here
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+        e.preventDefault();
+        const dragIndex = dragItem.current;
+
+        // If we have a valid drag item and it's not dropped on itself
+        if (dragIndex !== null && dragIndex !== dropIndex) {
             setImages(prev => {
                 const newImages = [...prev];
-                const draggedItemContent = newImages.splice(dragItem.current!, 1)[0];
-                newImages.splice(dragOverItem.current!, 0, draggedItemContent);
+                // Remove the item from its original position
+                const [draggedItemContent] = newImages.splice(dragIndex, 1);
+                // Insert it into the new position
+                newImages.splice(dropIndex, 0, draggedItemContent);
                 return newImages;
             });
         }
+
+        // Clean up
         dragItem.current = null;
-        dragOverItem.current = null;
+    };
+
+    const handleDragEnd = () => {
+        // Failsafe cleanup in case the drag is cancelled outside the drop zone
+        dragItem.current = null;
     };
 
     // --- Effects ---
@@ -177,7 +195,7 @@ const Controls = ({
         <div id="controls" className="controls">
             <div id="controlContainer">
                 <label className="file-upload">
-                    <input type="file" name="upload" id="upload" multiple hidden onChange={handleFileUpload} />
+                    <input type="file" name="upload" id="upload" multiple hidden onChange={handleFileUpload}/>
                     <span className="file-btn">Choose Files</span>
                     <span className="file-label" id="fileLabel">
             {images.length > 0 ? `${images.length} images selected` : 'No files chosen'}
@@ -242,7 +260,10 @@ const Controls = ({
                     </div>
                 )}
 
-                <button id="download" onClick={onDownload}>Download image</button>
+                <button id="download" onClick={onDownload}
+                        disabled={images.length === 0}
+                        className={images.length === 0 ? 'disabled' : ''}>Download image
+                </button>
             </div>
 
             <div id="imageListContainer" className={images.length > 0 ? '' : 'hidden'}>
@@ -252,10 +273,10 @@ const Controls = ({
                             key={img.id}
                             className="image-thumbnail"
                             draggable
-                            onDragStart={() => handleDragStart(index)}
-                            onDragEnter={() => handleDragEnter(index)}
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, index)} /* <-- Handles the actual reorder */
                             onDragEnd={handleDragEnd}
-                            onDragOver={(e) => e.preventDefault()} // Required for drop to work
                         >
                             <button
                                 className={`up-arrow ${index === 0 ? 'disabled' : ''}`}
@@ -266,7 +287,8 @@ const Controls = ({
                             <div className="preview-container">
                                 {/* Note: In a production app, generating a smaller thumbnail upfront is better for memory,
                     but leveraging the base64 src directly here mirrors your vanilla implementation */}
-                                <img className="thumbnail-img" src={img.src} alt={img.originalName} onContextMenu={(e) => e.preventDefault()} />
+                                <img className="thumbnail-img" src={img.src} alt={img.originalName}
+                                     onContextMenu={(e) => e.preventDefault()}/>
                                 <span className="thumbnail-label">{img.originalName}</span>
                             </div>
 

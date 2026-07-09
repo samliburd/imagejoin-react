@@ -10,7 +10,7 @@ function App() {
     // --- Debug logic ---
     const searchParams = new URLSearchParams(window.location.search);
     const debugQuery = searchParams.get('debug');
-    const showDebug = import.meta.env.DEV || (!window.location.href.includes("vercel") && debugQuery === 'true');
+    const showDebug = (import.meta.env.DEV && debugQuery !== "false") || (!window.location.href.includes("vercel") && debugQuery === 'true');
 
     // --- Global Application State ---
     const [images, setImages] = useState<ImageItem[]>([]);

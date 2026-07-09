@@ -45,6 +45,7 @@ $control-width: var(--control-width);
     }
 }
 
+
 body {
     background-color: $primary-bg;
     color: $text-color;
@@ -63,6 +64,7 @@ body {
     margin-top: -1rem;
     padding: 0.5rem;
 }
+
 
 main {
     display: flex;
@@ -223,6 +225,9 @@ button {
         border: none;
         padding: 0.6em 1.2em;
         font-size: 1rem;
+      &:disabled {
+        cursor: default;
+      }
     }
 }
 
