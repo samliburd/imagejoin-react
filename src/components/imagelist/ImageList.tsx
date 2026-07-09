@@ -15,14 +15,25 @@ interface SortableImageItemProps {
     onMoveDown: () => void;
 }
 
+// Inside ImageList.tsx
+
 function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDown }: SortableImageItemProps) {
-    const { ref, isDragging } = useSortable({ id, index });
+    // 1. Destructure transform and transition
+    const { ref, isDragging, transform, transition } = useSortable({ id, index });
+
+    // 2. Build a custom style object that strictly ignores scaleX and scaleY
+    const style = {
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        transition: transition || undefined,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        zIndex: isDragging ? 1000 : 1, // Keep it floating above other items
+    };
 
     return (
         <div
             ref={ref}
+            style={style} // 3. Apply the locked style
             className={`image-thumbnail ${isDragging ? 'dragging' : ''}`}
-            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
             <button
                 className={`up-arrow ${isFirst ? 'disabled' : ''}`}
@@ -33,7 +44,7 @@ function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDo
             <div className="preview-container">
                 <img
                     className="thumbnail-img"
-                    src={img.thumbnailSrc} /* <--- Point this to the new tiny string */
+                    src={img.thumbnailSrc}
                     alt={img.originalName}
                     onContextMenu={(e) => e.preventDefault()}
                 />
