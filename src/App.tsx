@@ -3,7 +3,7 @@ import './App.scss';
 import Controls from './components/controls/Controls';
 import ImageCanvas from './components/imagecanvas/ImageCanvas';
 import {type ImageItem, type Orientation} from './types';
-import {Analytics} from '@vercel/analytics/next';
+import { Analytics } from '@vercel/analytics/react';
 
 
 function App() {
@@ -29,7 +29,7 @@ function App() {
 
     return (
         <>
-            <h1 id="title">Photo Join</h1>
+            <h1 id="title">Image Join</h1>
             <main>
                 <Controls
                     images={images}
