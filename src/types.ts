@@ -1,11 +1,12 @@
 // types.ts (or add to the top of App.tsx)
 export interface ImageItem {
-  id: string; // Unique key for React mapping
-  src: string; // Base64 data or URL
-  originalName: string;
-  width: number;
-  height: number;
-  imgElement: HTMLImageElement; // Kept in memory for canvas ctx.drawImage
+    id: string;
+    src: string;          // The full, original high-res string
+    thumbnailSrc: string; // NEW: The tiny, compressed string for the UI
+    originalName: string;
+    width: number;
+    height: number;
+    imgElement: HTMLImageElement;
 }
 
 export type Orientation = 'portrait' | 'landscape';

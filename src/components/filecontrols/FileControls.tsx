@@ -45,17 +45,45 @@ const FileControls = ({
     const [isDebugMode, setIsDebugMode] = useState(false);
 
     // --- Utilities ---
+    const generateThumbnail = (img: HTMLImageElement, maxWidth = 100): string => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) return img.src; // Fallback just in case
+
+        // Calculate aspect ratio
+        const scale = Math.min(maxWidth / img.width, 1); // Prevent scaling UP small images
+        const newWidth = img.width * scale;
+        const newHeight = img.height * scale;
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        // Draw the image smaller
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        // Export as a highly compressed JPEG (0.5 quality)
+        // JPEGs are significantly smaller than PNGs for base64 thumbnails
+        return canvas.toDataURL('image/jpeg', 0.5);
+    };
+
     const loadImage = (src: string, name: string): Promise<ImageItem> => {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            img.onload = () => resolve({
-                id: crypto.randomUUID(), // Standard web API for unique IDs
-                src: src,
-                originalName: name,
-                width: img.width,
-                height: img.height,
-                imgElement: img
-            });
+            img.onload = () => {
+                // Generate the thumbnail the moment the image loads into memory
+                const tinySrc = generateThumbnail(img, 100);
+
+                resolve({
+                    id: crypto.randomUUID(),
+                    src: src,
+                    thumbnailSrc: tinySrc, // Save it to the new property
+                    originalName: name,
+                    width: img.width,
+                    height: img.height,
+                    imgElement: img
+                });
+            };
             img.onerror = () => reject(`Failed to load: ${name}`);
             img.src = src;
         });

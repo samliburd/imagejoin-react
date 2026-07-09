@@ -1,6 +1,55 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { DragDropProvider } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
+import { move } from '@dnd-kit/helpers';
 import { type ImageItem } from '../../types';
 
+// --- 1. Dedicated Sortable Item Component ---
+interface SortableImageItemProps {
+    id: string;
+    index: number;
+    img: ImageItem;
+    isFirst: boolean;
+    isLast: boolean;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+}
+
+function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDown }: SortableImageItemProps) {
+    const { ref, isDragging } = useSortable({ id, index });
+
+    return (
+        <div
+            ref={ref}
+            className={`image-thumbnail ${isDragging ? 'dragging' : ''}`}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        >
+            <button
+                className={`up-arrow ${isFirst ? 'disabled' : ''}`}
+                disabled={isFirst}
+                onClick={onMoveUp}
+            >&uarr;</button>
+
+            <div className="preview-container">
+                <img
+                    className="thumbnail-img"
+                    src={img.thumbnailSrc} /* <--- Point this to the new tiny string */
+                    alt={img.originalName}
+                    onContextMenu={(e) => e.preventDefault()}
+                />
+                <span className="thumbnail-label">{img.originalName}</span>
+            </div>
+
+            <button
+                className={`down-arrow ${isLast ? 'disabled' : ''}`}
+                disabled={isLast}
+                onClick={onMoveDown}
+            >&darr;</button>
+        </div>
+    );
+}
+
+// --- 2. Main List Component ---
 interface ImageListProps {
     images: ImageItem[];
     setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
@@ -8,9 +57,8 @@ interface ImageListProps {
 
 const ImageList = ({ images, setImages }: ImageListProps) => {
     const [helpText, setHelpText] = useState('Drag images to reorder or use the arrows.');
-    const dragItem = useRef<number | null>(null);
 
-    // --- Ordering Logic ---
+    // --- Standard Button Ordering Logic ---
     const swapImages = (idx1: number, idx2: number) => {
         setImages(prev => {
             const newImages = [...prev];
@@ -27,35 +75,10 @@ const ImageList = ({ images, setImages }: ImageListProps) => {
         if (idx < images.length - 1) swapImages(idx, idx + 1);
     };
 
-    // --- Drag and Drop Logic ---
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-        dragItem.current = index;
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', index.toString());
-    };
-
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    };
-
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
-        e.preventDefault();
-        const dragIndex = dragItem.current;
-
-        if (dragIndex !== null && dragIndex !== dropIndex) {
-            setImages(prev => {
-                const newImages = [...prev];
-                const [draggedItemContent] = newImages.splice(dragIndex, 1);
-                newImages.splice(dropIndex, 0, draggedItemContent);
-                return newImages;
-            });
-        }
-        dragItem.current = null;
-    };
-
-    const handleDragEnd = () => {
-        dragItem.current = null;
+    // --- dnd-kit Drag End Handler ---
+    const handleDragEnd = (event: any) => {
+        if (event.canceled) return;
+        setImages((prevImages) => move(prevImages, event));
     };
 
     // --- Effects ---
@@ -73,41 +96,25 @@ const ImageList = ({ images, setImages }: ImageListProps) => {
 
     return (
         <div id="ImageList" className={images.length > 0 ? '' : 'hidden'}>
-            <div id="imageList">
-                {images.map((img, index) => (
-                    <div
-                        key={img.id}
-                        className="image-thumbnail"
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, index)}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <button
-                            className={`up-arrow ${index === 0 ? 'disabled' : ''}`}
-                            disabled={index === 0}
-                            onClick={() => moveUp(index)}
-                        >&uarr;</button>
 
-                        <div className="preview-container">
-                            <img
-                                className="thumbnail-img"
-                                src={img.src}
-                                alt={img.originalName}
-                                onContextMenu={(e) => e.preventDefault()}
-                            />
-                            <span className="thumbnail-label">{img.originalName}</span>
-                        </div>
+            {/* Wrap the list in the Provider */}
+            <DragDropProvider onDragEnd={handleDragEnd}>
+                <div id="imageList">
+                    {images.map((img, index) => (
+                        <SortableImageItem
+                            key={img.id}
+                            id={img.id}
+                            index={index}
+                            img={img}
+                            isFirst={index === 0}
+                            isLast={index === images.length - 1}
+                            onMoveUp={() => moveUp(index)}
+                            onMoveDown={() => moveDown(index)}
+                        />
+                    ))}
+                </div>
+            </DragDropProvider>
 
-                        <button
-                            className={`down-arrow ${index === images.length - 1 ? 'disabled' : ''}`}
-                            disabled={index === images.length - 1}
-                            onClick={() => moveDown(index)}
-                        >&darr;</button>
-                    </div>
-                ))}
-            </div>
             <p id="helpText">{helpText}</p>
         </div>
     );
