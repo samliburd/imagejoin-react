@@ -1,8 +1,10 @@
-import { useState, useRef } from 'react';
+import {useRef, useState} from 'react';
 import './App.scss';
 import Controls from './components/controls/Controls';
 import ImageCanvas from './components/imagecanvas/ImageCanvas';
-import { type ImageItem, type Orientation } from './types'; // Adjust import based on where you put types
+import {type ImageItem, type Orientation} from './types';
+import {Analytics} from '@vercel/analytics/next';
+
 
 function App() {
     // --- Global Application State ---
@@ -12,7 +14,7 @@ function App() {
     const [filename, setFilename] = useState<string>('');
 
     // Ref to access the canvas for downloading
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null!);
 
     const handleDownload = () => {
         if (!canvasRef.current) return;
@@ -48,6 +50,7 @@ function App() {
                     scaleToLargest={scaleToLargest}
                 />
             </main>
+            <Analytics />
         </>
     );
 }
