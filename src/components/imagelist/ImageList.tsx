@@ -15,24 +15,15 @@ interface SortableImageItemProps {
     onMoveDown: () => void;
 }
 
-// Inside ImageList.tsx
-
 function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDown }: SortableImageItemProps) {
-    // 1. Destructure transform and transition
-    const { ref, isDragging, transform, transition } = useSortable({ id, index });
-
-    // 2. Build a custom style object that strictly ignores scaleX and scaleY
-    const style = {
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        transition: transition || undefined,
-        cursor: isDragging ? 'grabbing' : 'grab',
-        zIndex: isDragging ? 1000 : 1, // Keep it floating above other items
-    };
+    // 1. Just pull the ref and dragging state
+    const { ref, isDragging } = useSortable({ id, index });
 
     return (
         <div
             ref={ref}
-            style={style} // 3. Apply the locked style
+            // 2. Only pass the cursor style, let dnd-kit's popover handle the rest
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             className={`image-thumbnail ${isDragging ? 'dragging' : ''}`}
         >
             <button
