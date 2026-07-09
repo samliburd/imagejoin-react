@@ -1,0 +1,426 @@
+:root {
+    --primary-bg: #2f3b45;
+    --secondary-bg: #3b4a56;
+    --accent: #5c6b78;
+    --text-color: #f1f1f1;
+    --button-bg: #607d8b;
+    --button-hover: #78909c;
+    --border-radius: 6px;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --transition: 0.2s ease-in-out;
+    --font-stack: 'Segoe UI', Roboto, sans-serif;
+    --control-width: 300px;
+}
+
+// Variables
+$primary-bg: var(--primary-bg);
+$secondary-bg: var(--secondary-bg);
+$accent: var(--accent);
+$text-color: var(--text-color);
+$button-bg: var(--button-bg);
+$button-hover: var(--button-hover);
+$border-radius: var(--border-radius);
+$shadow: var(--shadow);
+$transition: var(--transition);
+$font-stack: var(--font-stack);
+$control-width: var(--control-width);
+
+// Mixins
+@mixin flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@mixin button-styles {
+    background-color: $button-bg;
+    color: white;
+    border-radius: $border-radius;
+    box-shadow: $shadow;
+    transition: background-color $transition;
+    cursor: pointer;
+
+    &:hover {
+        background-color: $button-hover;
+    }
+}
+
+body {
+    background-color: $primary-bg;
+    color: $text-color;
+    font-family: $font-stack;
+    margin: 0;
+    padding: 1rem 2rem 2rem;
+    box-sizing: border-box;
+}
+
+#title {
+    text-align: center;
+    color: $text-color;
+//background-color: $button-bg;
+    margin-left: -2rem;
+    margin-right: -2rem;
+    margin-top: -1rem;
+    padding: 0.5rem;
+}
+
+main {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 1rem;
+}
+.controls {
+    display: flex;
+    flex-direction: column;
+}
+#controlContainer {
+    display: flex;
+    flex-direction: column;
+    width: $control-width;
+    padding: 1rem;
+    gap: 1rem;
+    background-color: $secondary-bg;
+    border-radius: $border-radius;
+    box-shadow: $shadow;
+    margin-bottom: 0.5rem;
+    align-items: center;
+    box-sizing: border-box;
+
+    > * {
+        width: 90%;
+    }
+}
+
+.file-upload {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    cursor: pointer;
+
+    .file-btn {
+        @include button-styles;
+        padding: 0.5em 1em;
+        border-radius: 2.5px;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .file-label {
+        font-size: 0.9rem;
+        color: $text-color;
+        opacity: 0.8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+}
+
+.checkboxContainer {
+    display: flex;
+    justify-content: space-between;
+}
+
+input[type='checkbox'] {
+    accent-color: $button-bg;
+    transform: scale(1.2);
+    margin-right: 0.5rem;
+}
+
+.filenameInput {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .label-text {
+        width: auto;
+        margin-right: 10px;
+        white-space: nowrap;
+    }
+
+    input {
+        flex-grow: 1;
+        min-width: 0; // Essential for preventing flex blowout
+    box-sizing: border-box; // <--- This is the crucial fix
+    background-color: $primary-bg;
+        color: $text-color;
+        border: 1px solid $accent;
+        padding: 0.4rem 0.5rem;
+        border-radius: 4px;
+        font-family: $font-stack;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color $transition;
+
+        &:focus {
+            border-color: $button-hover;
+        }
+    }
+}
+
+.dropdownContainer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    label {
+        margin-right: 10px;
+        white-space: nowrap; // Keeps the label on one line
+    }
+    #orientationButtons {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        .orientationButton {
+            @include button-styles;
+            height: 2rem;
+            width: 2rem;
+            background-color: white;
+            color: $button-bg;
+            &:hover {
+                color: white;
+                background-color: $button-bg;
+            }
+        }
+    }
+    #orientationDropdown {
+        display: none;
+        flex-grow: 1; // Allows it to fill remaining space like your text input
+    background-color: $primary-bg;
+        color: $text-color;
+        border: 1px solid $accent;
+        padding: 0.4rem 0.5rem;
+        border-radius: 4px;
+        font-family: $font-stack;
+        font-size: 0.9rem;
+        cursor: pointer;
+        outline: none;
+
+        &:focus {
+            border-color: $button-hover;
+        }
+
+        option {
+            background-color: $primary-bg;
+            color: $text-color;
+        }
+    }
+}
+
+label {
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+button {
+    &#download {
+        @include button-styles;
+        border: none;
+        padding: 0.6em 1.2em;
+        font-size: 1rem;
+    }
+}
+
+#canvasContainer {
+    width: 90%;
+    padding: 0.25rem;
+    background-color: $secondary-bg;
+    border-radius: $border-radius;
+    box-shadow: $shadow;
+    margin-top: 0;
+}
+
+#canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: $border-radius;
+}
+
+.hidden {
+    display: none;
+}
+
+#imageListContainer {
+    width: $control-width;
+    box-sizing: border-box;
+
+    p {
+        text-align: center;
+        font-size: 0.8rem;
+        margin: 0;
+    }
+
+    &.hidden {
+        display: none;
+    }
+}
+
+#imageList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 10px;
+    width: 100%;
+    background-color: $secondary-bg;
+    border-radius: $border-radius;
+    box-shadow: $shadow;
+    min-height: 50px;
+    box-sizing: border-box;
+}
+
+.preview-container {
+    flex: 1;
+    width: 40%;
+    margin-left: 10px;
+}
+
+.image-thumbnail {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    height: 25px;
+    max-height: 45px; // Explicit max height
+background-color: $button-bg;
+    border-radius: 2.5px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    overflow: hidden; // Prevent any overflow
+
+.preview-container {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    height: 100%;
+    gap: 10px;
+    min-width: 0; // Allows text truncation
+}
+
+    img {
+        width: 25px;
+        height: auto;
+        max-height: 90%;
+        object-fit: contain; // Show whole image
+    flex-shrink: 0; // Prevent image from shrinking
+    }
+
+    .thumbnail-img {
+        user-select: none;
+    }
+
+    .thumbnail-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 1; // Allow text to shrink if needed
+    text-align: right;
+        font-size: 0.8rem;
+        min-width: 0;
+    }
+
+    &.dragging {
+        opacity: 0.5;
+        border: 1px dashed #999;
+    }
+}
+
+.up-arrow,
+.down-arrow {
+    background-color: $accent;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color $transition;
+
+    &:hover {
+        background-color: $button-hover;
+    }
+}
+
+.disabled {
+    opacity: 0.3;
+    cursor: pointer;
+}
+
+// Media query
+@media screen and (max-width: 600px) {
+    :root {
+        --control-width: 90%;
+    }
+
+    body {
+        padding: 1rem 0.8rem 2rem;
+    }
+
+    #title {
+        margin-top: 0;
+    }
+    main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .controls {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+    #controlContainer {
+        width: $control-width;
+        min-width: $control-width;
+        align-content: space-around;
+        padding: 1rem 0.5rem;
+
+        > * {
+            width: 90%;
+        }
+
+        .filenameInput {
+            width: 90%;
+            input {
+                width: auto;
+            }
+        }
+    }
+
+    .file-upload {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    .file-label {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+
+    #canvasContainer {
+        width: 90%;
+        min-width: 90%;
+    }
+
+    #imageListContainer {
+        width: $control-width;
+        min-width: $control-width;
+    }
+}
