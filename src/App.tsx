@@ -7,6 +7,11 @@ import { Analytics } from '@vercel/analytics/react';
 
 
 function App() {
+    // --- Debug logic ---
+    const searchParams = new URLSearchParams(window.location.search);
+    const debugQuery = searchParams.get('debug');
+    const showDebug = import.meta.env.DEV || (!window.location.href.includes("vercel") && debugQuery === 'true');
+
     // --- Global Application State ---
     const [images, setImages] = useState<ImageItem[]>([]);
     const [orientation, setOrientation] = useState<Orientation>('portrait');
@@ -41,7 +46,7 @@ function App() {
                     filename={filename}
                     setFilename={setFilename}
                     onDownload={handleDownload}
-                    debug={import.meta.env.DEV}
+                    debug={showDebug}
                 />
                 <ImageCanvas
                     canvasRef={canvasRef}
