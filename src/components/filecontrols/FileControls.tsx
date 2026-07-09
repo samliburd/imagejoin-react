@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type ImageItem, type Orientation } from '../../types';
 
 declare global {
@@ -27,7 +27,6 @@ interface FileControlsProps {
     setFilename: (val: string) => void;
     onDownload: () => void;
     debug: boolean;
-    // NEW Props
     customWidth: string;
     setCustomWidth: (val: string) => void;
     canvasWidth: number;
@@ -50,7 +49,13 @@ const FileControls = ({
                       }: FileControlsProps) => {
     const [isDebugMode, setIsDebugMode] = useState(false);
 
-    // ... (generateThumbnail and loadImage utilities stay exactly the same) ...
+    // Local state allows typing freely without triggering canvas renders
+    const [localWidth, setLocalWidth] = useState<string>(customWidth);
+
+    useEffect(() => {
+        setLocalWidth(customWidth);
+    }, [customWidth]);
+
     const generateThumbnail = (img: HTMLImageElement, maxWidth = 100): string => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -84,7 +89,6 @@ const FileControls = ({
         });
     };
 
-    // ... (handleFileUpload, handleDebugToggle, handleOrientationChange stay exactly the same) ...
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -135,8 +139,39 @@ const FileControls = ({
         });
     };
 
-    // Derived state to check if user has inputted a valid custom width
-    const hasCustomWidth = customWidth.trim() !== '';
+    // --- CLEANED Width Logic ---
+
+    const handleWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // Pure text updater. No intercepting logic.
+        setLocalWidth(e.target.value);
+    };
+
+    const applyWidth = () => {
+        const val = localWidth.trim();
+
+        if (val === '') {
+            setCustomWidth('');
+            return;
+        }
+
+        // Just ensure it's a valid number greater than 0 before pushing to canvas
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+            setCustomWidth(parsed.toString());
+        } else {
+            // If they typed "-50" or "abc", reset the input box back to the last safe value
+            setLocalWidth(customWidth);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyWidth();
+        }
+    };
+
+    const hasCustomWidth = localWidth.trim() !== '';
 
     return (
         <div id="FileControls">
@@ -147,7 +182,6 @@ const FileControls = ({
                     {images.length > 0 ? `${images.length} images selected` : 'No files chosen'}
                 </span>
             </label>
-
 
             <div className="dropdownContainer">
                 <label htmlFor="orientationDropdown">Orientation:</label>
@@ -172,8 +206,6 @@ const FileControls = ({
                 </select>
             </div>
 
-
-
             <div className="checkboxContainer" style={{ opacity: hasCustomWidth ? 0.5 : 1 }}>
                 <label htmlFor="scaleCheckbox">Resize to largest image</label>
                 <input
@@ -181,24 +213,30 @@ const FileControls = ({
                     name="scaleCheckbox"
                     id="scaleCheckbox"
                     checked={scaleToLargest}
-                    disabled={hasCustomWidth} // NEW: Disable if width is hardcoded
+                    disabled={hasCustomWidth}
                     onChange={(e) => setScaleToLargest(e.target.checked)}
                 />
             </div>
-            <label className="filenameInput" htmlFor="customWidth">
-                <span className="label-text">Width: </span>
-                <input
-                    type="number"
-                    name="customWidth"
-                    id="customWidth"
-                    min="1"
-                    placeholder={canvasWidth ? canvasWidth.toString() : 'Auto'}
-                    value={customWidth}
-                    onChange={(e) => setCustomWidth(e.target.value)}
-                />
+
+
+            <label className="textInput" htmlFor="customWidth">
+                <span className="label-text">Width:</span>
+                <div className="input-wrapper">
+                    <input
+                        type="number"
+                        name="customWidth"
+                        id="customWidth"
+                        placeholder={canvasWidth ? canvasWidth.toString() : 'Auto'}
+                        value={localWidth}
+                        onChange={handleWidthChange}
+                        onKeyDown={handleKeyDown}
+                    />
+                    <button type="button" onClick={applyWidth}>Go</button>
+                </div>
             </label>
-            <label className="filenameInput" htmlFor="filename">
-                <span className="label-text">Filename: </span>
+
+            <label className="textInput" htmlFor="filename">
+                <span className="label-text">Filename:</span>
                 <input
                     type="text"
                     name="filename"

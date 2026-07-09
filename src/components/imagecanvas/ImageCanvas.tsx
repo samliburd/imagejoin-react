@@ -6,7 +6,6 @@ interface ImageCanvasProps {
     images: ImageItem[];
     orientation: Orientation;
     scaleToLargest: boolean;
-    // NEW Props
     customWidth: string;
     setCanvasWidth: (width: number) => void;
     canvasWidth: number;
@@ -15,14 +14,14 @@ interface ImageCanvasProps {
 const ImageCanvas = ({ canvasRef, images, orientation, scaleToLargest, customWidth, setCanvasWidth }: ImageCanvasProps) => {
 
     useEffect(() => {
+        // 1. Cleanup flag to prevent race conditions during rapid re-renders (like dragging)
+        let isActive = true;
+
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
 
         if (images.length === 0) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -41,8 +40,10 @@ const ImageCanvas = ({ canvasRef, images, orientation, scaleToLargest, customWid
 
         let finalCanvasWidth = 0;
 
+        // 2. Pre-calculate all math synchronously and build a drawing queue
+        const drawQueue: { img: HTMLImageElement, x: number, y: number, w: number, h: number }[] = [];
+
         if (isPortrait) {
-            // Apply custom width override directly
             const baseWidth = hasCustomWidth ? parsedCustomWidth : getBaseDimension('width');
             const scaleFactors = images.map((img) => baseWidth / img.width);
             const newHeights = images.map((img, i) => img.height * scaleFactors[i]);
@@ -52,15 +53,19 @@ const ImageCanvas = ({ canvasRef, images, orientation, scaleToLargest, customWid
 
             let yOffset = 0;
             images.forEach((img, i) => {
-                ctx.drawImage(img.imgElement, 0, yOffset, baseWidth, newHeights[i]);
+                drawQueue.push({
+                    img: img.imgElement,
+                    x: 0,
+                    y: yOffset,
+                    w: baseWidth,
+                    h: newHeights[i]
+                });
                 yOffset += newHeights[i];
             });
             finalCanvasWidth = canvas.width;
         } else {
             let baseHeight: number;
 
-            // To achieve a specific total width in landscape, we must scale the baseHeight
-            // mathematically based on the sum of the images' aspect ratios
             if (hasCustomWidth) {
                 const aspectSum = images.reduce((sum, img) => sum + (img.width / img.height), 0);
                 baseHeight = parsedCustomWidth / aspectSum;
@@ -76,14 +81,53 @@ const ImageCanvas = ({ canvasRef, images, orientation, scaleToLargest, customWid
 
             let xOffset = 0;
             images.forEach((img, i) => {
-                ctx.drawImage(img.imgElement, xOffset, 0, newWidths[i], baseHeight);
+                drawQueue.push({
+                    img: img.imgElement,
+                    x: xOffset,
+                    y: 0,
+                    w: newWidths[i],
+                    h: baseHeight
+                });
                 xOffset += newWidths[i];
             });
             finalCanvasWidth = canvas.width;
         }
 
-        // Lift the calculated state up to App.tsx so the FileControls input placeholder can read it
         setCanvasWidth(finalCanvasWidth);
+
+        // 3. The Modern Web API Asynchronous Drawing Engine
+        const drawHighQuality = async () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (const item of drawQueue) {
+                if (!isActive) return; // Abort immediately if component unmounted or re-rendered
+
+                try {
+                    // createImageBitmap demands whole numbers to prevent DOMExceptions in strict browsers
+                    const bitmap = await createImageBitmap(item.img, {
+                        resizeWidth: Math.round(item.w),
+                        resizeHeight: Math.round(item.h),
+                        resizeQuality: 'high'
+                    });
+
+                    if (!isActive) return; // Check again after the await
+                    ctx.drawImage(bitmap, item.x, item.y);
+                } catch (error) {
+                    // Safe fallback to standard rendering if a browser struggles with the specific image encoding
+                    if (!isActive) return;
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(item.img, item.x, item.y, item.w, item.h);
+                }
+            }
+        };
+
+        drawHighQuality();
+
+        // 4. Clean up the effect to shut down stale background threads
+        return () => {
+            isActive = false;
+        };
 
     }, [images, orientation, scaleToLargest, customWidth, canvasRef, setCanvasWidth]);
 

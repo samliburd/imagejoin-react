@@ -134,21 +134,51 @@ input[type='checkbox'] {
   margin-right: 0.5rem;
 }
 
-.filenameInput {
+.textInput {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1rem; // 1. Use gap instead of space-between for predictable spacing
 
   .label-text {
-    width: 33.33%;
-    margin-right: 10px;
+    flex: 0 0 27.5%; // 2. Strictly lock the label to this width (grow: 0, shrink: 0)
     white-space: nowrap;
   }
 
+  // 3. Target BOTH the standalone input (Filename) AND the wrapper (Width)
+  // This guarantees they occupy the exact same footprint
+  > input,
+  .input-wrapper {
+    flex: 1; // Take up 100% of the remaining space
+    min-width: 0; // Prevent flex blowout
+  }
+
+  // Wrapper-specific logic
+  .input-wrapper {
+    position: relative;
+    display: flex;
+
+    input {
+      width: 100%;
+      // Extra right padding so text doesn't hide behind the button
+      padding: 0.4rem 3rem 0.4rem 0.5rem;
+    }
+
+    button {
+      @include button-styles;
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      padding: 0 0.8rem;
+      border: 1px solid $accent;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+  }
+
+  // Base aesthetic styles applied to ALL inputs
   input {
-    flex-grow: 1;
-    min-width: 0; // Essential for preventing flex blowout
-    box-sizing: border-box; // <--- This is the crucial fix
+    box-sizing: border-box;
     background-color: $primary-bg;
     color: $text-color;
     border: 1px solid $accent;
@@ -162,6 +192,18 @@ input[type='checkbox'] {
     &:focus {
       border-color: $button-hover;
     }
+  }
+
+  /* Chrome, Safari, Edge, Opera */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Firefox */
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
 }
 
@@ -412,7 +454,7 @@ button {
       width: 90%;
     }
 
-    .filenameInput {
+    .textInput {
       width: 90%;
 
       input {
