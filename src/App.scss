@@ -77,7 +77,7 @@ main {
     display: flex;
     flex-direction: column;
 }
-#controlContainer {
+#FileControls {
     display: flex;
     flex-direction: column;
     width: $control-width;
@@ -251,7 +251,7 @@ button {
     display: none;
 }
 
-#imageListContainer {
+#ImageList {
     width: $control-width;
     box-sizing: border-box;
 
@@ -387,7 +387,7 @@ background-color: $button-bg;
         align-items: center;
         width: 100%;
     }
-    #controlContainer {
+    #FileControls {
         width: $control-width;
         min-width: $control-width;
         align-content: space-around;
@@ -424,7 +424,7 @@ background-color: $button-bg;
         min-width: 90%;
     }
 
-    #imageListContainer {
+    #ImageList {
         width: $control-width;
         min-width: $control-width;
     }
