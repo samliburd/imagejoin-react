@@ -41,7 +41,7 @@ function App() {
                     filename={filename}
                     setFilename={setFilename}
                     onDownload={handleDownload}
-                    debug={true}
+                    debug={import.meta.env.DEV}
                 />
                 <ImageCanvas
                     canvasRef={canvasRef}
