@@ -3,8 +3,10 @@ import './App.scss';
 import Controls from './components/controls/Controls';
 import FileControls, { type CopyFeedback } from './components/filecontrols/FileControls';
 import HelpDialog from './components/help/HelpDialog';
+import { CloseIcon } from './components/icons/Icons';
 import ImageCanvas from './components/imagecanvas/ImageCanvas';
 import ImageList from './components/imagelist/ImageList';
+import SeoInfoSection from './components/info/SeoInfoSection';
 import {
     type Alignment,
     type CanvasSize,
@@ -21,7 +23,7 @@ import {
     sumFileSizeKb,
     trackEvent,
 } from './utils/analytics';
-import { filterImageFiles, loadImageFiles, revokeImageUrls } from './utils/imageLoader';
+import { loadImageFilesDetailed, revokeImageUrls } from './utils/imageLoader';
 
 const FORMAT_EXTENSION: Record<ExportFormat, string> = {
     'image/jpeg': 'jpg',
@@ -36,6 +38,12 @@ function triggerDownload(href: string, downloadName: string): void {
     link.href = href;
     link.download = downloadName;
     link.click();
+}
+
+function formatFailedFilesMessage(failedNames: string[]): string {
+    const preview = failedNames.slice(0, 3).join(', ');
+    const extra = failedNames.length > 3 ? ` (+${failedNames.length - 3} more)` : '';
+    return `Skipped ${failedNames.length} unsupported or unreadable file(s): ${preview}${extra}. Try PNG, JPEG, WebP, GIF, or AVIF.`;
 }
 
 function nextRotation(current: Rotation = 0): Rotation {
@@ -67,9 +75,14 @@ function App() {
     const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
     const [isFileDragging, setIsFileDragging] = useState<boolean>(false);
     const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>({ text: '', state: 'idle' });
+    const [errorBanner, setErrorBanner] = useState<string | null>(null);
+    const [undoClearImages, setUndoClearImages] = useState<ImageItem[] | null>(null);
 
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const undoClearRef = useRef<ImageItem[] | null>(null);
     const lastCopyMessageRef = useRef<string>('');
     const dragDepthRef = useRef<number>(0);
     const imagesRef = useRef<ImageItem[]>(images);
@@ -78,17 +91,38 @@ function App() {
         imagesRef.current = images;
     }, [images]);
 
-    const replaceImages = useCallback((nextImages: ImageItem[]) => {
-        setImages((prev) => {
-            revokeImageUrls(prev);
-            return nextImages;
-        });
+    const discardPendingUndo = useCallback(() => {
+        if (undoTimerRef.current !== null) {
+            clearTimeout(undoTimerRef.current);
+            undoTimerRef.current = null;
+        }
+        if (undoClearRef.current) {
+            revokeImageUrls(undoClearRef.current);
+            undoClearRef.current = null;
+        }
+        setUndoClearImages(null);
     }, []);
 
-    const appendImages = useCallback((moreImages: ImageItem[]) => {
-        if (moreImages.length === 0) return;
-        setImages((prev) => [...prev, ...moreImages]);
-    }, []);
+    const replaceImages = useCallback(
+        (nextImages: ImageItem[]) => {
+            discardPendingUndo();
+            setErrorBanner(null);
+            setImages((prev) => {
+                revokeImageUrls(prev);
+                return nextImages;
+            });
+        },
+        [discardPendingUndo],
+    );
+
+    const appendImages = useCallback(
+        (moreImages: ImageItem[]) => {
+            if (moreImages.length === 0) return;
+            discardPendingUndo();
+            setImages((prev) => [...prev, ...moreImages]);
+        },
+        [discardPendingUndo],
+    );
 
     const appendIngestedImages = useCallback(
         (loaded: ImageItem[], ingestMethod: IngestMethod) => {
@@ -105,6 +139,36 @@ function App() {
             });
         },
         [appendImages],
+    );
+
+    const ingestFiles = useCallback(
+        async (files: FileList | readonly File[], ingestMethod: IngestMethod) => {
+            try {
+                const { loaded, failedNames } = await loadImageFilesDetailed(files);
+                if (failedNames.length > 0) {
+                    setErrorBanner(formatFailedFilesMessage(failedNames));
+                    trackEvent({
+                        event: 'file_ingest_error',
+                        ingest_method: ingestMethod,
+                        skipped_count: failedNames.length,
+                        loaded_count: loaded.length,
+                    });
+                } else if (loaded.length > 0) {
+                    setErrorBanner(null);
+                }
+                appendIngestedImages(loaded, ingestMethod);
+            } catch (err) {
+                console.error(err);
+                setErrorBanner('Could not load the selected image files.');
+                trackEvent({
+                    event: 'file_ingest_error',
+                    ingest_method: ingestMethod,
+                    skipped_count: files.length,
+                    loaded_count: 0,
+                });
+            }
+        },
+        [appendIngestedImages],
     );
 
     const removeImage = useCallback((id: string) => {
@@ -159,13 +223,41 @@ function App() {
     }, []);
 
     const clearImages = useCallback(() => {
-        replaceImages([]);
+        const current = imagesRef.current;
+        if (current.length === 0) return;
+
+        discardPendingUndo();
+        undoClearRef.current = current;
+        setUndoClearImages(current);
+        setImages([]);
+
+        undoTimerRef.current = setTimeout(() => {
+            discardPendingUndo();
+        }, 6000);
+
         trackEvent({
             event: 'image_list_action',
             action_type: 'clear_all',
             image_count: 0,
         });
-    }, [replaceImages]);
+    }, [discardPendingUndo]);
+
+    const handleUndoClear = useCallback(() => {
+        if (!undoClearRef.current) return;
+        const restored = undoClearRef.current;
+        if (undoTimerRef.current !== null) {
+            clearTimeout(undoTimerRef.current);
+            undoTimerRef.current = null;
+        }
+        undoClearRef.current = null;
+        setUndoClearImages(null);
+        setImages(restored);
+        trackEvent({
+            event: 'image_list_action',
+            action_type: 'undo_clear',
+            image_count: restored.length,
+        });
+    }, []);
 
     const showCopyFeedback = useCallback((ok: boolean) => {
         if (copyTimerRef.current !== null) {
@@ -189,8 +281,9 @@ function App() {
             if (copyTimerRef.current !== null) {
                 clearTimeout(copyTimerRef.current);
             }
+            discardPendingUndo();
         };
-    }, []);
+    }, [discardPendingUndo]);
 
     // Global paste handler for clipboard images (Cmd+V / Ctrl+V)
     useEffect(() => {
@@ -198,21 +291,13 @@ function App() {
             const pastedFiles = e.clipboardData?.files;
             if (!pastedFiles || pastedFiles.length === 0) return;
 
-            const imageFiles = filterImageFiles(pastedFiles);
-            if (imageFiles.length === 0) return;
-
             e.preventDefault();
-            try {
-                const loaded = await loadImageFiles(imageFiles);
-                appendIngestedImages(loaded, 'paste');
-            } catch (err) {
-                console.error(err);
-            }
+            await ingestFiles(pastedFiles, 'paste');
         };
 
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
-    }, [appendIngestedImages]);
+    }, [ingestFiles]);
 
     // PWA File Handling API (launchQueue)
     useEffect(() => {
@@ -221,13 +306,13 @@ function App() {
             if (!launchParams.files || launchParams.files.length === 0) return;
             try {
                 const files = await Promise.all(launchParams.files.map((handle) => handle.getFile()));
-                const loaded = await loadImageFiles(files);
-                appendIngestedImages(loaded, 'pwa_file_handler');
+                await ingestFiles(files, 'pwa_file_handler');
             } catch (err) {
                 console.error(err);
+                setErrorBanner('Could not open files shared to ImageJoin.');
             }
         });
-    }, [appendIngestedImages]);
+    }, [ingestFiles]);
 
     // PWA Share Target consumption (?shared=1 from share-target-sw.js)
     useEffect(() => {
@@ -250,19 +335,19 @@ function App() {
                     await cache.delete(req);
                 }
                 if (active && files.length > 0) {
-                    const loaded = await loadImageFiles(files);
-                    appendIngestedImages(loaded, 'pwa_share_target');
+                    await ingestFiles(files, 'pwa_share_target');
                 }
                 window.history.replaceState({}, '', '/');
             } catch (err) {
                 console.error(err);
+                if (active) setErrorBanner('Could not load shared image files.');
             }
         })();
 
         return () => {
             active = false;
         };
-    }, [appendIngestedImages]);
+    }, [ingestFiles]);
 
     const getExportSourceCanvas = (format: ExportFormat): HTMLCanvasElement | null => {
         const canvas = canvasRef.current;
@@ -430,12 +515,7 @@ function App() {
         const droppedFiles = e.dataTransfer?.files;
         if (!droppedFiles || droppedFiles.length === 0) return;
 
-        try {
-            const loaded = await loadImageFiles(droppedFiles);
-            appendIngestedImages(loaded, 'drag_drop');
-        } catch (err) {
-            console.error(err);
-        }
+        await ingestFiles(droppedFiles, 'drag_drop');
     };
 
     return (
@@ -447,7 +527,12 @@ function App() {
             onDrop={handleDrop}
         >
             <header className="app-header">
-                <h1 id="title">Image Join</h1>
+                <div className="app-brand">
+                    <h1 id="title">ImageJoin</h1>
+                    <p className="app-tagline">
+                        Combine, stack &amp; grid images privately in your browser
+                    </p>
+                </div>
                 <button
                     type="button"
                     id="helpButton"
@@ -466,6 +551,46 @@ function App() {
                     ?
                 </button>
             </header>
+
+            {errorBanner && (
+                <div className="app-banner app-banner-error" role="alert">
+                    <span>{errorBanner}</span>
+                    <button
+                        type="button"
+                        className="banner-icon-btn"
+                        aria-label="Dismiss error"
+                        onClick={() => setErrorBanner(null)}
+                    >
+                        <CloseIcon />
+                    </button>
+                </div>
+            )}
+
+            {undoClearImages && (
+                <div className="app-banner app-banner-undo" role="status">
+                    <span>
+                        Cleared {undoClearImages.length}{' '}
+                        {undoClearImages.length === 1 ? 'image' : 'images'}.
+                    </span>
+                    <div className="banner-actions">
+                        <button
+                            type="button"
+                            className="banner-undo-btn"
+                            onClick={handleUndoClear}
+                        >
+                            Undo
+                        </button>
+                        <button
+                            type="button"
+                            className="banner-icon-btn"
+                            aria-label="Dismiss undo notification"
+                            onClick={discardPendingUndo}
+                        >
+                            <CloseIcon />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {isFileDragging && (
                 <div className="drop-overlay" aria-hidden="true">
@@ -506,6 +631,8 @@ function App() {
                         customWidth={customWidth}
                         setCustomWidth={setCustomWidth}
                         canvasWidth={canvasSize.width}
+                        fileInputRef={fileInputRef}
+                        onNotifyError={setErrorBanner}
                     />
                     <ImageList
                         images={images}
@@ -531,8 +658,17 @@ function App() {
                     quality={quality}
                     canvasSize={canvasSize}
                     setCanvasSize={setCanvasSize}
+                    onBrowseFiles={() => {
+                        trackEvent({
+                            event: 'empty_dropzone_browse',
+                            image_count: 0,
+                        });
+                        fileInputRef.current?.click();
+                    }}
                 />
             </main>
+
+            <SeoInfoSection />
 
             <HelpDialog
                 isOpen={isHelpOpen}

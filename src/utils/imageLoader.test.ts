@@ -4,6 +4,7 @@ import {
   generateThumbnail,
   loadImage,
   loadImageFiles,
+  loadImageFilesDetailed,
   revokeImageUrls,
 } from './imageLoader';
 import { createMockCanvasContext, createMockImageItem } from '../test/fixtures';
@@ -124,5 +125,45 @@ describe('imageLoader', () => {
 
     expect(revokeSpy).toHaveBeenCalledTimes(1);
     expect(revokeSpy).toHaveBeenCalledWith('blob:user-1');
+  });
+
+  it('keeps valid images in loadImageFilesDetailed while reporting skipped/failed filenames', async () => {
+    createMockCanvasContext('data:image/jpeg;base64,thumb');
+    let urlIdx = 0;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:detailed-${++urlIdx}`);
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    class MixedImage {
+      width = 300;
+      height = 150;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(val: string) {
+        queueMicrotask(() => {
+          if (val === 'blob:detailed-2') {
+            this.onerror?.();
+          } else {
+            this.onload?.();
+          }
+        });
+      }
+    }
+
+    vi.stubGlobal('Image', MixedImage);
+
+    const files = [
+      new File(['1'], 'good.png', { type: 'image/png' }),
+      new File(['2'], 'notes.txt', { type: 'text/plain' }),
+      new File(['3'], 'corrupt.png', { type: 'image/png' }),
+    ];
+
+    const result = await loadImageFilesDetailed(files);
+
+    expect(result.loaded).toHaveLength(1);
+    expect(result.loaded[0]).toMatchObject({ originalName: 'good.png', src: 'blob:detailed-1' });
+    expect(result.failedNames).toEqual(['notes.txt', 'corrupt.png']);
+    expect(revokeSpy).toHaveBeenCalledTimes(1);
+    expect(revokeSpy).toHaveBeenCalledWith('blob:detailed-2');
   });
 });

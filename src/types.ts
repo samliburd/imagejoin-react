@@ -53,7 +53,10 @@ export type ImageListActionType =
     | 'rotate'
     | 'flip'
     | 'remove'
-    | 'clear_all';
+    | 'clear_all'
+    | 'undo_clear';
+
+export type FaqTopic = 'privacy' | 'supported_formats' | 'jpeg_transparency';
 
 export interface LayoutOptions {
     orientation: Orientation;
@@ -149,6 +152,24 @@ export interface HelpDialogToggleEvent {
     image_count: number;
 }
 
+export interface FileIngestErrorEvent {
+    event: 'file_ingest_error';
+    ingest_method: IngestMethod;
+    skipped_count: number;
+    loaded_count: number;
+}
+
+export interface EmptyDropzoneBrowseEvent {
+    event: 'empty_dropzone_browse';
+    image_count: number;
+}
+
+export interface FaqToggleEvent {
+    event: 'faq_toggle';
+    faq_topic: FaqTopic;
+    is_open: boolean;
+}
+
 export interface ImageExportEvent extends ExportSettingsSnapshot {
     event: 'image_export';
     export_method: 'download';
@@ -169,6 +190,9 @@ export type AnalyticsEvent =
     | CanvasZoomToggleEvent
     | CanvasLimitWarningEvent
     | HelpDialogToggleEvent
+    | FileIngestErrorEvent
+    | EmptyDropzoneBrowseEvent
+    | FaqToggleEvent
     | ImageExportEvent
     | ImageCopyEvent;
 

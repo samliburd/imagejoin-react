@@ -46,17 +46,18 @@ imagejoin-react/
 │   ├── pwa-64x64.png                 # Standard 64x64 PWA manifest icon
 │   ├── pwa-192x192.png               # Standard 192x192 PWA manifest icon
 │   ├── pwa-512x512.png               # Standard 512x512 PWA manifest icon
-│   ├── robots.txt                    # Search crawler allow-all policy
+│   ├── robots.txt                    # Search crawler allow-all policy and sitemap pointer
 │   ├── share-target-sw.js            # Workbox SW extension caching POST /share-target image files
+│   ├── sitemap.xml                   # Canonical XML sitemap for search engine indexing
 │   ├── img/
 │   │   └── og-image.jpg              # OpenGraph and Twitter Card social preview banner
 │   └── testimg/                      # Local-only test fixtures (git-ignored) for Debug mode
 └── src/                              # Application source code
     ├── main.tsx                      # React 19 DOM root creation and StrictMode mounting
-    ├── App.tsx                       # Root stateful container, drag-drop/paste/PWA ingestion, and export/copy
-    ├── App.test.tsx                  # End-to-end App upload, paste, drop, copy, and download tests
-    ├── App.scss                      # Design tokens, layout rules, slider/dialog styles, and responsive rules
-    ├── index.css                     # HTML5 Boilerplate v9.0.1 base reset and utility classes
+    ├── App.tsx                       # Root stateful container, drag-drop/paste/PWA ingestion, undo/error banners, and export/copy
+    ├── App.test.tsx                  # End-to-end App upload, paste, drop, error banner, undo clear, copy, and download tests
+    ├── App.scss                      # Design tokens, layout rules, empty-dropzone, slider/dialog, SEO footer, and responsive rules
+    ├── index.css                     # Base HTML/reset styles and accessible .visually-hidden utility
     ├── types.ts                      # Core domain data contracts (ImageItem, Orientation, LayoutOptions)
     ├── test/
     │   ├── fixtures.ts               # Shared ImageItem, Canvas 2D, and matchMedia test helpers
@@ -65,24 +66,28 @@ imagejoin-react/
     │   ├── controls/
     │   │   └── Controls.tsx          # Composition sidebar layout wrapper (#controls.controls)
     │   ├── filecontrols/
-    │   │   ├── FileControls.tsx      # File ingestion, orientation/grid, layout/export options, and copy/download
-    │   │   └── FileControls.test.tsx # File upload, width buffering, advanced options, and copy feedback tests
+    │   │   ├── FileControls.tsx      # Accessible file pickers, SVG orientation toggles, width buffering, options, and export
+    │   │   └── FileControls.test.tsx # File upload, width buffering/Auto reset, advanced options, and copy feedback tests
     │   ├── help/
     │   │   ├── HelpDialog.tsx        # Native <dialog> help & keyboard shortcuts modal
     │   │   └── HelpDialog.test.tsx   # Modal open/close behavior tests
+    │   ├── icons/
+    │   │   └── Icons.tsx             # Consistent inline SVG icon set for orientation, empty state, and thumbnail actions
     │   ├── imagecanvas/
-    │   │   ├── ImageCanvas.tsx       # Parallel createImageBitmap compositor, preview bar, and zoom viewport
-    │   │   └── ImageCanvas.test.tsx  # Parallel resampling, transforms, bitmap cleanup, and cancellation tests
-    │   └── imagelist/
-    │       ├── ImageList.tsx         # Sortable thumbnail queue with drag-and-drop, rotate, flip, and remove
-    │       └── ImageList.test.tsx    # Reordering, rotate/flip/remove/clear, and matchMedia tests
+    │   │   ├── ImageCanvas.tsx       # Parallel createImageBitmap compositor, empty-state dropzone, preview bar, and zoom viewport
+    │   │   └── ImageCanvas.test.tsx  # Parallel resampling, empty dropzone, transforms, bitmap cleanup, and cancellation tests
+    │   ├── imagelist/
+    │   │   ├── ImageList.tsx         # Sortable thumbnail queue with drag-and-drop, rotate, flip, and remove
+    │   │   └── ImageList.test.tsx    # Reordering, rotate/flip/remove/clear, and matchMedia tests
+    │   └── info/
+    │       └── SeoInfoSection.tsx    # Below-the-fold semantic product overview and FAQ section for users and crawlers
     └── utils/
         ├── analytics.ts              # Privacy-safe GTM dataLayer tracker and export snapshot builder
         ├── analytics.test.ts         # Unit tests for file-type extraction, snapshots, and stale-key clearing
         ├── canvasLayout.ts           # Pure Portrait/Landscape/Grid layout math, gap/padding, and limit checks
         ├── canvasLayout.test.ts      # Unit tests for Portrait/Landscape/Grid/Rotation layout formulas
-        ├── imageLoader.ts            # Object URL file ingestion, thumbnail generation, and URL revocation
-        └── imageLoader.test.ts       # Unit tests for file filtering, thumbnails, Object URLs, and cleanup
+        ├── imageLoader.ts            # Object URL file ingestion (Promise.allSettled partial recovery), thumbnails, and revocation
+        └── imageLoader.test.ts       # Unit tests for file filtering, thumbnails, Object URLs, partial failure, and cleanup
 ```
 
 ### Configuration & Workspace Files
@@ -97,7 +102,7 @@ imagejoin-react/
 | [`tsconfig.node.json`](./tsconfig.node.json) | Isolates Node-specific type checking (`nodenext`) strictly to [`vite.config.ts`](./vite.config.ts) and [`vitest.config.ts`](./vitest.config.ts).                                                                                       |
 | [`.oxlintrc.json`](./.oxlintrc.json)         | Enables `react`, `typescript`, and `oxc` lint plugins, enforcing `react/rules-of-hooks` (`error`) and `react/only-export-components` (`warn`).                                                                                         |
 | [`.yarnrc.yml`](./.yarnrc.yml)               | Configures Yarn 4 with `nodeLinker: node-modules` for Vite 8 compatibility.                                                                                                                                                            |
-| [`index.html`](./index.html)                 | Mounts `#root`, injects the Google Tag Manager (`GTM-M99M3C5P`) script and `<noscript>` fallback, and defines OpenGraph/Twitter/PWA metadata.                                                                                          |
+| [`index.html`](./index.html)                 | Mounts `#root`, injects the Google Tag Manager (`GTM-M99M3C5P`) script and `<noscript>` fallback, and defines OpenGraph/Twitter/PWA metadata plus `WebApplication` JSON-LD structured data. |
 | [`.gitignore`](./.gitignore)                 | Excludes build artifacts (`dist/`), dependencies (`node_modules/`), Vitest cache (`.vitest`), local debug fixtures (`public/testimg`), and local workspace files (`.agents/`, `AGENTS.md`, `skills-lock.json`, `CLOUDFLARE_PAGES.md`, `og-image-hires.png`). |
 
 ---
@@ -234,6 +239,10 @@ flowchart LR
     App --> ImageList["src/components/imagelist/ImageList.tsx"]
     App --> ImageCanvas["src/components/imagecanvas/ImageCanvas.tsx"]
     App --> HelpDialog["src/components/help/HelpDialog.tsx"]
+    App --> SeoInfoSection["src/components/info/SeoInfoSection.tsx"]
+    FileControls --> Icons["src/components/icons/Icons.tsx"]
+    ImageList --> Icons
+    ImageCanvas --> Icons
     App -.->|"Ingests & revokes blob URLs"| ImageLoader["src/utils/imageLoader.ts"]
     FileControls -.->|"Ingests files & thumbnails"| ImageLoader
     ImageCanvas -.->|"Computes geometry"| CanvasLayout["src/utils/canvasLayout.ts"]
@@ -247,32 +256,35 @@ flowchart LR
 ### 5.1 Application Bootstrap & Root State ([`src/main.tsx`](./src/main.tsx), [`src/App.tsx`](./src/App.tsx), [`src/types.ts`](./src/types.ts))
 
 - **Entry Point ([`src/main.tsx`](./src/main.tsx#L1-L10))**: Mounts `<App />` inside `<StrictMode>` onto `#root` after importing global styles from [`src/index.css`](./src/index.css).
-- **Domain & Telemetry Contracts ([`src/types.ts`](./src/types.ts#L1-L163))**:
+- **Domain & Telemetry Contracts ([`src/types.ts`](./src/types.ts#L1-L196))**:
   - `ImageItem` ([`src/types.ts`](./src/types.ts#L3-L15)): Encapsulates a loaded image's lifecycle data: unique `id` (`crypto.randomUUID()`), full-resolution `src` (Object URL or asset path), downsampled `thumbnailSrc`, `originalName`, natural `width` and `height`, `imgElement` (`HTMLImageElement`), optional `rotation` (`0 | 90 | 180 | 270`) and `flipH` (`boolean`), and optional `mimeType` / `fileSize` metadata for analytics.
-  - `Orientation`, `SizeMode`, `Alignment`, `ExportFormat`, `LayoutOptions`, and `CanvasSize` ([`src/types.ts`](./src/types.ts#L17-L77)): Discriminated union and configuration contracts governing layout geometry and export formats.
-  - `AnalyticsEvent`, `DataLayerEntry`, `LaunchParams`, and `Window` ([`src/types.ts`](./src/types.ts#L79-L163)): Strictly typed discriminated union for all 10 GTM `dataLayer` events and PWA `launchQueue` global declarations.
-- **Root State Coordinator ([`src/App.tsx`](./src/App.tsx#L38-L553))**:
-  - **Debug Mode Resolution ([`src/App.tsx`](./src/App.tsx#L39-L45))**: Evaluates `window.location.search` for `debug` and `window.location.hostname` for localhost (`localhost` or `127.0.0.1`). Debug mode is enabled automatically in Vite dev mode (`import.meta.env.DEV`) unless `?debug=false` is passed, or on localhost hostnames when `?debug=true` is explicitly provided.
-  - **Lifted State & Image Mutations ([`src/App.tsx`](./src/App.tsx#L47-L105))**: Manages `images`, `orientation`, `columns`, `sizeMode`, `alignment`, `gap`, `padding`, `backgroundColor`, `exportFormat`, `quality`, `filename`, `canvasSize`, `customWidth`, `isHelpOpen`, `isFileDragging`, and `copyFeedback`. Provides `replaceImages`, `appendImages`, `removeImage`, `rotateImage`, `flipImage`, and `clearImages`, revoking `blob:` URLs via `revokeImageUrls`.
-  - **Multi-Channel File Ingestion ([`src/App.tsx`](./src/App.tsx#L132-L202), [`src/App.tsx`](./src/App.tsx#L281-L319))**: Handles global `paste` (`Cmd+V` / `Ctrl+V`), global `Files` drag-and-drop overlay, PWA `window.launchQueue` (`file_handlers`), and `?shared=1` Cache Storage retrieval (`share-target-sw.js`).
-  - **Export & Clipboard Handlers ([`src/App.tsx`](./src/App.tsx#L204-L279))**: `handleDownload()` fills transparent backgrounds with white when exporting JPEG and encodes via `canvas.toBlob(..., exportFormat, quality)` into a temporary Object URL (with `toDataURL` fallback). `handleCopy()` writes a PNG `Blob` via `navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])` and updates `copyFeedback` with repeated-message deduplication (`\u00A0`).
+  - `Orientation`, `SizeMode`, `Alignment`, `ExportFormat`, `LayoutOptions`, and `CanvasSize` ([`src/types.ts`](./src/types.ts#L17-L71)): Discriminated union and configuration contracts governing layout geometry and export formats.
+  - `AnalyticsEvent`, `DataLayerEntry`, `LaunchParams`, and `Window` ([`src/types.ts`](./src/types.ts#L73-L220)): Strictly typed discriminated union for all 13 GTM `dataLayer` events and PWA `launchQueue` global declarations.
+- **Root State Coordinator ([`src/App.tsx`](./src/App.tsx#L53-L660))**:
+  - **Debug Mode Resolution ([`src/App.tsx`](./src/App.tsx#L54-L61))**: Evaluates `window.location.search` for `debug` and `window.location.hostname` for localhost (`localhost` or `127.0.0.1`). Debug mode is enabled automatically in Vite dev mode (`import.meta.env.DEV`) unless `?debug=false` is passed, or on localhost hostnames when `?debug=true` is explicitly provided.
+  - **Lifted State, Undo & Error Handling ([`src/App.tsx`](./src/App.tsx#L63-L244))**: Manages `images`, `orientation`, `columns`, `sizeMode`, `alignment`, `gap`, `padding`, `backgroundColor`, `exportFormat`, `quality`, `filename`, `canvasSize`, `customWidth`, `isHelpOpen`, `isFileDragging`, `copyFeedback`, `errorBanner`, and `undoClearImages`. `clearImages` defers `revokeImageUrls` for 6 seconds with an inline `Undo` banner (`handleUndoClear`), while `removeImage` and `replaceImages` revoke superseded `blob:` URLs immediately.
+  - **Multi-Channel File Ingestion ([`src/App.tsx`](./src/App.tsx#L144-L160), [`src/App.tsx`](./src/App.tsx#L272-L334), [`src/App.tsx`](./src/App.tsx#L494-L502))**: Shared `ingestFiles` helper powers global `paste` (`Cmd+V` / `Ctrl+V`), global `Files` drag-and-drop overlay, PWA `window.launchQueue` (`file_handlers`), and `?shared=1` Cache Storage retrieval (`share-target-sw.js`), surfacing `role="alert"` error banners for skipped files.
+  - **Export & Clipboard Handlers ([`src/App.tsx`](./src/App.tsx#L335-L466))**: `handleDownload()` fills transparent backgrounds with white when exporting JPEG and encodes via `canvas.toBlob(..., exportFormat, quality)` into a temporary Object URL (with `toDataURL` fallback). `handleCopy()` writes a PNG `Blob` via `navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])` and updates `copyFeedback` with repeated-message deduplication (`\u00A0`).
+  - **Below-the-Fold Product Overview ([`src/components/info/SeoInfoSection.tsx`](./src/components/info/SeoInfoSection.tsx#L1-L68))**: Renders concise semantic documentation and FAQs beneath `<main>` for user onboarding and search engine crawlability without obstructing the editor viewport.
 
-### 5.2 Control Panel, Help Modal & Ingestion Pipeline ([`src/components/controls/Controls.tsx`](./src/components/controls/Controls.tsx), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx), [`src/components/help/HelpDialog.tsx`](./src/components/help/HelpDialog.tsx), [`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts))
+### 5.2 Control Panel, Help Modal & Ingestion Pipeline ([`src/components/controls/Controls.tsx`](./src/components/controls/Controls.tsx), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx), [`src/components/help/HelpDialog.tsx`](./src/components/help/HelpDialog.tsx), [`src/components/icons/Icons.tsx`](./src/components/icons/Icons.tsx), [`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts))
 
 - **Sidebar Wrapper ([`src/components/controls/Controls.tsx`](./src/components/controls/Controls.tsx#L3-L15))**: Stateless composition container (`#controls.controls`) rendering `children`.
-- **Help & Shortcuts Modal ([`src/components/help/HelpDialog.tsx`](./src/components/help/HelpDialog.tsx#L8-L139))**: Native top-layer `<dialog closedby="any">` opened via `showModal()` from `#helpButton`, including a pointerdown/pointerup light-dismiss fallback for browsers without `closedBy` support.
-- **Image Loader & Thumbnail Utility ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L8-L84))**:
+- **Help & Shortcuts Modal ([`src/components/help/HelpDialog.tsx`](./src/components/help/HelpDialog.tsx#L8-L142))**: Native top-layer `<dialog closedby="any">` opened via `showModal()` from `#helpButton`, using `<h2>`/`<h3>` headings and a pointerdown/pointerup light-dismiss fallback for browsers without `closedBy` support.
+- **Image Loader & Thumbnail Utility ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L8-L148))**:
   - `filterImageFiles(files)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L8-L12)): Filters files by `image/*` MIME type or raster image extension.
   - `generateThumbnail(img, maxWidth = 100)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L18-L30)): Renders a 100px max-width downscaled image onto an ephemeral `<canvas>` and exports a lightweight JPEG (`quality = 0.5`).
-  - `loadImage(src, name)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L35-L54)): Decodes an `HTMLImageElement`, generates its thumbnail, and assigns `crypto.randomUUID()` with `rotation: 0` and `flipH: false`.
-  - `loadImageFiles(files)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L60-L73)): Maps image files to `URL.createObjectURL(file)`, decodes them concurrently, and revokes the entire batch's Object URLs if any file fails to load.
-  - `revokeImageUrls(images)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L78-L84)): Revokes `blob:` URLs while ignoring static debug fixture paths.
-- **File & Parameter Controls ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L58-L419))**:
-  - **Replace & Append File Pickers ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L95-L111), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L179-L210))**: `#upload` replaces the queue while `#addUpload` (`+ Add`) appends additional files.
-  - **Analytics Utility ([`src/utils/analytics.ts`](./src/utils/analytics.ts#L1-L168))**: Centralizes `trackEvent()` (with `is_debug_mode` tagging for localhost/dev and Data Layer v2 stale-key cleanup between pushes) and `buildExportSnapshot()`, emitting 10 privacy-safe events (`images_added`, `orientation_change`, `option_change`, `advanced_options_toggle`, `image_list_action`, `canvas_zoom_toggle`, `canvas_limit_warning`, `help_dialog_toggle`, `image_export`, `image_copy`) without exposing raw filenames.
-  - **Buffered Custom Width ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L88-L93), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L143-L164))**: Buffers keystrokes in `localWidth` (syncing during render via `prevCustomWidth`), validates `parseInt(val, 10) > 0` on `Enter` or `Go`, and disables `#sizeMode` while active.
-  - **Layout & Export Options (`<details className="advanced-options">`) ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L298-L395))**: Exposes `Sizing` (`largest` | `smallest` | `original`), `Align` (`start` | `center` | `end`), `Gap (px)`, `Pad (px)`, `Background` presets + custom `<input type="color">`, `Format` (`JPEG`, `PNG`, `WebP`), and a native `<input type="range">` `Quality` slider (hidden for lossless PNG).
-  - **Export & Copy Actions ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L409-L441))**: Renders `#download` and `#copyImage` paired with an external `role="status"` live feedback badge.
+  - `loadImage(src, name)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L40-L66)): Decodes an `HTMLImageElement`, generates its thumbnail, and assigns `crypto.randomUUID()` with `rotation: 0` and `flipH: false`.
+  - `loadImageFilesDetailed(files)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L77-L115)): Uses `Promise.allSettled` to keep valid images when individual files are unsupported or fail to decode, revoking only failed Object URLs and returning `{ loaded, failedNames }`.
+  - `loadImageFiles(files)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L121-L137)): Strict batch loader that revokes all created Object URLs if any file fails to load.
+  - `revokeImageUrls(images)` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L142-L148)): Revokes `blob:` URLs while ignoring static debug fixture paths.
+- **File & Parameter Controls ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L71-L681))**:
+  - **Accessible Replace & Append Pickers ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L114-L146), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L262-L299))**: `#upload` (`Choose Files` / `Replace`) and `#addUpload` (`+ Add`) use `.visually-hidden` so keyboard users retain full Tab/focus-ring access.
+  - **SVG Segmented Orientation Toggle ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L301-L343))**: Uses inline icons from [`Icons.tsx`](./src/components/icons/Icons.tsx) paired with concise labels (`Stack`, `Row`, `Grid`).
+  - **Analytics Utility ([`src/utils/analytics.ts`](./src/utils/analytics.ts#L1-L212))**: Centralizes `trackEvent()` (with `is_debug_mode` tagging for localhost/dev and Data Layer v2 stale-key cleanup between pushes) and `buildExportSnapshot()`, emitting 13 privacy-safe events (including `undo_clear`, `file_ingest_error`, `empty_dropzone_browse`, and `faq_toggle`) without exposing raw filenames.
+  - **Buffered Custom Width & Reset ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L105-L110), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L186-L240), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L376-L413))**: Buffers keystrokes in `localWidth`, surfaces a dirty `Go` indicator (`Press Enter or click Go to apply width`), provides a one-click `Auto` reset button when applied, and explains why `#sizeMode` is disabled while custom width is active.
+  - **Layout & Export Options (`<details className="advanced-options">`) ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L418-L633))**: Exposes `Sizing`, `Align`, `Gap (px)`, `Pad (px)`, `Background` presets + custom color picker, `Format` (`JPEG`, `PNG`, `WebP`), and `Quality` slider (hidden for PNG).
+  - **Export & Copy Actions ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L645-L678))**: Renders `#download` (primary action accent) and `#copyImage` paired with an external `role="status"` live feedback badge.
 
 ### 5.3 Canvas Layout Math & Rendering Engine ([`src/utils/canvasLayout.ts`](./src/utils/canvasLayout.ts), [`src/components/imagecanvas/ImageCanvas.tsx`](./src/components/imagecanvas/ImageCanvas.tsx))
 
@@ -287,12 +299,12 @@ flowchart LR
 | **Grid** ($C$ Columns) ([`src/utils/canvasLayout.ts`](./src/utils/canvasLayout.ts#L163-L209))         | Auto or Custom                   | $W_{\text{cell}} = \frac{W_{\text{custom}} - 2P - G(C_{\text{used}}-1)}{C_{\text{used}}}$ (or $\max/\min(W_i)$) | Scaled to $W_{\text{cell}}$ (or `original`), aligned inside each row's $\max(H'_r)$ | $W_{\text{canvas}} = C_{\text{used}} W_{\text{cell}} + G(C_{\text{used}}-1) + 2P$<br>$H_{\text{canvas}} = \sum H_{\text{row}} + G(R-1) + 2P$ |
 
 - **Parallel Resampling, Transforms, Bitmap Disposal & Cancellation ([`src/components/imagecanvas/ImageCanvas.tsx`](./src/components/imagecanvas/ImageCanvas.tsx#L68-L188))**: `drawHighQuality()` resamples all `drawQueue` items concurrently to `(drawW, drawH)` via `Promise.all`, checks `isActive` before painting, fills `backgroundColor` if non-transparent, applies `ctx.translate` / `ctx.rotate` / `ctx.scale` when `rotation !== 0 || flipH`, and guarantees `bitmap.close()` in both the active draw `finally` block and the cancelled-render cleanup path.
-- **Preview Toolbar, Size Estimate & Limit Warning ([`src/components/imagecanvas/ImageCanvas.tsx`](./src/components/imagecanvas/ImageCanvas.tsx#L193-L226))**: Displays live `${canvasSize.width} × ${canvasSize.height} px` and asynchronous `canvas.toBlob` size estimate, toggles between `Fit View` and `100% Zoom`, renders a CSS checkerboard pattern behind transparent canvases, and displays a `role="status"` warning when `layout.exceedsLimits` is true.
+- **Preview Toolbar, Empty Dropzone, Size Estimate & Limit Warning ([`src/components/imagecanvas/ImageCanvas.tsx`](./src/components/imagecanvas/ImageCanvas.tsx#L211-L280))**: Renders an interactive empty-state dropzone when no images are queued (triggering the file picker, drag-drop, or paste), displays live `${canvasSize.width} × ${canvasSize.height} px` and asynchronous `canvas.toBlob` size estimate when active, toggles between `Fit View` and `100% Zoom`, renders a CSS checkerboard pattern behind transparent canvases, and displays a `role="status"` warning when `layout.exceedsLimits` is true.
 
 ### 5.4 Sortable Image Queue ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx))
 
-- **`SortableImageItem` ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L25-L98))**: Binds each image entry to `@dnd-kit/react/sortable` via `useSortable({ id, index })`. Displays accessible `↑`, Rotate (`↻`), Flip (`⇄`), `↓`, and Remove (`×`) buttons, the compressed `img.thumbnailSrc` with CSS preview transform and context-menu suppression (`onContextMenu={(e) => e.preventDefault()}`), and the truncated `originalName`.
-- **`ImageList` ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L109-L174))**:
+- **`SortableImageItem` ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L33-L119))**: Binds each image entry to `@dnd-kit/react/sortable` via `useSortable({ id, index })`. Displays accessible inline SVG action buttons from [`Icons.tsx`](./src/components/icons/Icons.tsx) (move up, rotate 90°, flip horizontally, move down, and remove), the compressed `img.thumbnailSrc` with CSS preview transform and context-menu suppression (`onContextMenu={(e) => e.preventDefault()}`), and the truncated `originalName`.
+- **`ImageList` ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L132-L232))**:
   - Wraps items in `<DragDropProvider onDragEnd={handleDragEnd}>` ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L135-L147)), delegating drag reordering to `move(prevImages, event)` from `@dnd-kit/helpers`.
   - Provides explicit button reordering (`swapImages`, `moveUp`, `moveDown`), per-item rotate/flip/remove callbacks, and a `Clear all` button ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L168-L171)).
   - Lazily initializes `#helpText` from `window.matchMedia('(max-width: 600px)').matches` and subscribes to `change` events ([`src/components/imagelist/ImageList.tsx`](./src/components/imagelist/ImageList.tsx#L114-L148)).
@@ -434,7 +446,7 @@ Because ImageJoin is an offline-capable client-side utility, its security postur
 | Symptom                                                                                    | Cause                                                                                                                                                                                                                                                                                                                                                      | Fix                                                                                                                                                                                                                                |
 | :----------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Typing a number in the "Width" field does not resize the canvas**                        | `FileControls` buffers keystrokes in `localWidth` to prevent expensive canvas redraws on every character typed ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L88-L93)).                                                                                                                                 | Press the `Enter` key while focused in `#customWidth` or click the adjacent **Go** button to trigger `applyWidth()` ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L143-L164)).  |
-| **"Sizing" select is greyed out and unclickable**                                          | A custom width is currently active (`hasCustomWidth` is `true` when `localWidth.trim() !== ''`), which overrides `sizeMode` selection ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L166), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L286-L299)). | Clear the text inside the **Width** input field and click **Go** (or press `Enter`) to reset `customWidth` to `''` (`Auto`).                                                                                                       |
+| **"Sizing" select is greyed out and unclickable**                                          | A custom width is currently active (`hasCustomWidth` is `true` when `localWidth.trim() !== ''`), which overrides `sizeMode` selection ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L242), [`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L430-L450)). | Click the **Auto** reset button next to **Width** (or clear the text inside **Width** and click **Go** / press `Enter`) to reset `customWidth` to `''`.                                                                                                       |
 | **Transparent PNG background turns white on JPEG export**                                  | JPEG has no alpha channel; [`getExportSourceCanvas`](./src/App.tsx#L204-L221) composites transparent canvases onto white for JPEG exports to avoid black artifacts.                                                                                                                                                                                        | Switch **Format** in **Layout & Export Options** to `PNG (.png)` or `WebP (.webp)` to preserve transparency.                                                                                                                       |
 | **Copy button shows "Copy failed"**                                                        | `navigator.clipboard.write` requires a secure context (`https:` or `localhost`) and clipboard write permission.                                                                                                                                                                                                                                            | Serve over HTTPS or localhost and grant clipboard permissions, or use **Download image**.                                                                                                                                          |
 | **Toggling the "Debug" checkbox logs `Failed to load: testimg/...` and renders no images** | The `public/testimg` directory is excluded from version control in [`.gitignore`](./.gitignore#L5), so the six fixture paths in `TEST_IMAGES` ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L11-L18)) are missing on fresh clones. | Create `public/testimg/` locally and populate it with the expected test images (`01-tall-portrait.png`, `02-wide-landscape.jpg`, `03-tiny-icon.png`, `04-square-alpha.webp`, `05-highres-stress.jpg`, and `06-very-long-filename-for-list-truncation-check.png`). |

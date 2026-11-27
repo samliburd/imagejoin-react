@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type KeyboardEvent, useRef, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, type KeyboardEvent, type RefObject, useRef, useState } from 'react';
 import {
     type Alignment,
     type ExportFormat,
@@ -13,7 +13,8 @@ import {
     sumFileSizeKb,
     trackEvent,
 } from '../../utils/analytics';
-import { loadImage, loadImageFiles } from '../../utils/imageLoader';
+import { loadImage, loadImageFilesDetailed } from '../../utils/imageLoader';
+import { GridCollageIcon, LandscapeRowIcon, PortraitStackIcon } from '../icons/Icons';
 
 const TEST_IMAGES = [
     'testimg/01-tall-portrait.png',
@@ -62,6 +63,8 @@ interface FileControlsProps {
     customWidth: string;
     setCustomWidth: (val: string) => void;
     canvasWidth: number;
+    fileInputRef?: RefObject<HTMLInputElement | null>;
+    onNotifyError?: (message: string) => void;
 }
 
 const FileControls = ({
@@ -95,6 +98,8 @@ const FileControls = ({
     customWidth,
     setCustomWidth,
     canvasWidth,
+    fileInputRef,
+    onNotifyError,
 }: FileControlsProps) => {
     const [isDebugMode, setIsDebugMode] = useState(false);
 
@@ -111,8 +116,22 @@ const FileControls = ({
     const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>, mode: 'replace' | 'append') => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
+        const ingestMethod = mode === 'append' ? 'picker_append' : 'picker_replace';
         try {
-            const loadedImages = await loadImageFiles(files);
+            const { loaded: loadedImages, failedNames } = await loadImageFilesDetailed(files);
+            if (failedNames.length > 0) {
+                const preview = failedNames.slice(0, 3).join(', ');
+                const extra = failedNames.length > 3 ? ` (+${failedNames.length - 3} more)` : '';
+                onNotifyError?.(
+                    `Skipped ${failedNames.length} unsupported or unreadable file(s): ${preview}${extra}.`,
+                );
+                trackEvent({
+                    event: 'file_ingest_error',
+                    ingest_method: ingestMethod,
+                    skipped_count: failedNames.length,
+                    loaded_count: loadedImages.length,
+                });
+            }
             if (loadedImages.length > 0) {
                 const nextCount =
                     mode === 'append' ? images.length + loadedImages.length : loadedImages.length;
@@ -123,7 +142,7 @@ const FileControls = ({
                 }
                 trackEvent({
                     event: 'images_added',
-                    ingest_method: mode === 'append' ? 'picker_append' : 'picker_replace',
+                    ingest_method: ingestMethod,
                     added_count: loadedImages.length,
                     image_count: nextCount,
                     file_types: extractFileTypes(loadedImages),
@@ -132,6 +151,13 @@ const FileControls = ({
             }
         } catch (error) {
             console.error(error);
+            onNotifyError?.('Could not read the selected image files.');
+            trackEvent({
+                event: 'file_ingest_error',
+                ingest_method: ingestMethod,
+                skipped_count: files.length,
+                loaded_count: 0,
+            });
         }
         e.target.value = '';
     };
@@ -178,19 +204,24 @@ const FileControls = ({
         setLocalWidth(e.target.value);
     };
 
+    const resetWidthToAuto = () => {
+        setLocalWidth('');
+        if (customWidth !== '') {
+            trackEvent({
+                event: 'option_change',
+                option_name: 'custom_width',
+                option_value: 'auto',
+                image_count: images.length,
+            });
+        }
+        setCustomWidth('');
+    };
+
     const applyWidth = () => {
         const val = localWidth.trim();
 
         if (val === '') {
-            if (customWidth !== '') {
-                trackEvent({
-                    event: 'option_change',
-                    option_name: 'custom_width',
-                    option_value: 'auto',
-                    image_count: images.length,
-                });
-            }
-            setCustomWidth('');
+            resetWidthToAuto();
             return;
         }
 
@@ -232,6 +263,7 @@ const FileControls = ({
     };
 
     const hasCustomWidth = localWidth.trim() !== '';
+    const isWidthDirty = localWidth.trim() !== customWidth;
     const fileLabelText =
         images.length === 0
             ? 'No files chosen'
@@ -251,15 +283,18 @@ const FileControls = ({
             <div className="file-upload-row">
                 <label className="file-upload">
                     <input
+                        ref={fileInputRef}
                         type="file"
                         name="upload"
                         id="upload"
                         accept="image/*"
                         multiple
-                        hidden
+                        className="visually-hidden"
                         onChange={(e) => handleFileUpload(e, 'replace')}
                     />
-                    <span className="file-btn">Choose Files</span>
+                    <span className="file-btn">
+                        {images.length > 0 ? 'Replace' : 'Choose Files'}
+                    </span>
                     <span className="file-label" id="fileLabel">
                         {fileLabelText}
                     </span>
@@ -273,7 +308,7 @@ const FileControls = ({
                             id="addUpload"
                             accept="image/*"
                             multiple
-                            hidden
+                            className="visually-hidden"
                             onChange={(e) => handleFileUpload(e, 'append')}
                         />
                         <span>+ Add</span>
@@ -294,7 +329,8 @@ const FileControls = ({
                         title="Portrait (vertical stack)"
                         onClick={() => handleOrientationChange('portrait')}
                     >
-                        &#8597;
+                        <PortraitStackIcon />
+                        <span>Stack</span>
                     </button>
                     <button
                         type="button"
@@ -304,7 +340,8 @@ const FileControls = ({
                         title="Landscape (horizontal row)"
                         onClick={() => handleOrientationChange('landscape')}
                     >
-                        &#8596;
+                        <LandscapeRowIcon />
+                        <span>Row</span>
                     </button>
                     <button
                         type="button"
@@ -314,7 +351,8 @@ const FileControls = ({
                         title="Grid (multi-column collage)"
                         onClick={() => handleOrientationChange('grid')}
                     >
-                        &#9638;
+                        <GridCollageIcon />
+                        <span>Grid</span>
                     </button>
                 </div>
             </div>
@@ -357,14 +395,35 @@ const FileControls = ({
                         id="customWidth"
                         placeholder={canvasWidth ? canvasWidth.toString() : 'Auto'}
                         value={localWidth}
+                        aria-describedby={isWidthDirty ? 'widthHint' : undefined}
                         onChange={handleWidthChange}
                         onKeyDown={handleKeyDown}
                     />
-                    <button type="button" onClick={applyWidth}>
+                    {customWidth !== '' && !isWidthDirty && (
+                        <button
+                            type="button"
+                            className="reset-width-btn"
+                            aria-label="Reset width to Auto"
+                            title="Reset to Auto"
+                            onClick={resetWidthToAuto}
+                        >
+                            Auto
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={isWidthDirty ? 'is-dirty' : undefined}
+                        onClick={applyWidth}
+                    >
                         Go
                     </button>
                 </div>
             </label>
+            {isWidthDirty && (
+                <p id="widthHint" className="format-hint">
+                    Press Enter or click Go to apply width.
+                </p>
+            )}
 
             <label className="textInput" htmlFor="filename">
                 <span className="label-text">Filename:</span>
@@ -418,6 +477,9 @@ const FileControls = ({
                             <option value="original">Original sizes</option>
                         </select>
                     </label>
+                    {hasCustomWidth && (
+                        <p className="format-hint">Disabled while a custom Width is set.</p>
+                    )}
 
                     <label className="selectRow" htmlFor="alignment">
                         <span className="label-text">Align:</span>

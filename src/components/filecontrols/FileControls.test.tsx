@@ -93,6 +93,8 @@ describe('FileControls', () => {
     await user.type(widthInput, '1080');
     expect(setCustomWidth).not.toHaveBeenCalled();
     expect(sizeModeSelect).toBeDisabled();
+    expect(screen.getByText('Press Enter or click Go to apply width.')).toBeInTheDocument();
+    expect(screen.getByText('Disabled while a custom Width is set.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Go' }));
     expect(setCustomWidth).toHaveBeenCalledWith('1080');
@@ -104,6 +106,8 @@ describe('FileControls', () => {
 
     rerender(<FileControls {...props} customWidth="1280" />);
     expect(widthInput.value).toBe('1280');
+    await user.click(screen.getByRole('button', { name: 'Reset width to Auto' }));
+    expect(setCustomWidth).toHaveBeenCalledWith('');
   });
 
   it('reflects active orientation (including Grid + Columns) and pushes GTM dataLayer events', async () => {

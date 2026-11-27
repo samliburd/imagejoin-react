@@ -74,14 +74,14 @@ const HelpDialog = ({ isOpen, onClose }: HelpDialogProps) => {
             {...({ closedby: 'any' } as Record<string, string>)}
         >
             <div className="help-dialog-content">
-                <h1 id="help-dialog-title">ImageJoin Guide &amp; Shortcuts</h1>
+                <h2 id="help-dialog-title">ImageJoin Guide &amp; Shortcuts</h2>
                 <p className="help-privacy">
                     <strong>100% client-side:</strong> All image decoding, resizing, and export
                     happen locally inside your browser. Your files are never uploaded to a server.
                 </p>
 
                 <section aria-labelledby="help-input-heading">
-                    <h2 id="help-input-heading">Adding &amp; Arranging Images</h2>
+                    <h3 id="help-input-heading">Adding &amp; Arranging Images</h3>
                     <ul>
                         <li>
                             <strong>Drag &amp; drop</strong> image files anywhere onto the page, or{' '}
@@ -89,19 +89,18 @@ const HelpDialog = ({ isOpen, onClose }: HelpDialogProps) => {
                             <kbd>Cmd+V</kbd>.
                         </li>
                         <li>
-                            Use <strong>Choose Files</strong> to replace the queue, or{' '}
-                            <strong>+ Add</strong> to append more images.
+                            Use <strong>Choose Files</strong> (or <strong>Replace</strong>) to load
+                            a new set, or <strong>+ Add</strong> to append more images.
                         </li>
                         <li>
-                            Reorder items by dragging thumbnails or using the <strong>↑</strong> /{' '}
-                            <strong>↓</strong> buttons. Rotate (<kbd>↻</kbd>), flip (<kbd>⇄</kbd>),
-                            or remove (<kbd>×</kbd>) individual items.
+                            Reorder items by dragging thumbnails or using the arrow buttons. Rotate,
+                            flip horizontally, or remove individual items.
                         </li>
                     </ul>
                 </section>
 
                 <section aria-labelledby="help-layout-heading">
-                    <h2 id="help-layout-heading">Layout &amp; Export Options</h2>
+                    <h3 id="help-layout-heading">Layout &amp; Export Options</h3>
                     <ul>
                         <li>
                             <strong>Orientation:</strong> Vertical stack (Portrait), horizontal row

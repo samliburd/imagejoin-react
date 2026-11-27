@@ -40,13 +40,18 @@ describe('ImageCanvas', () => {
     );
   });
 
-  it('clears the canvas, hides container, and resets canvasSize when images is empty', () => {
+  it('clears the canvas, hides container, shows empty dropzone, and resets canvasSize when images is empty', async () => {
+    const user = userEvent.setup();
     const { ctx } = createMockCanvasContext();
     const setCanvasSize = vi.fn();
+    const onBrowseFiles = vi.fn();
 
-    const { container } = renderImageCanvas({ setCanvasSize });
+    const { container } = renderImageCanvas({ setCanvasSize, onBrowseFiles });
 
     expect(container.querySelector('#canvasContainer')).toHaveClass('hidden');
+    expect(screen.getByRole('heading', { name: 'Drop images here to combine' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Choose Images' }));
+    expect(onBrowseFiles).toHaveBeenCalledTimes(1);
     expect(ctx.clearRect).toHaveBeenCalledTimes(1);
     expect(setCanvasSize).toHaveBeenCalledWith({ width: 0, height: 0 });
   });

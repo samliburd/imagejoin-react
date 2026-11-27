@@ -9,6 +9,7 @@ import {
 } from '../../types';
 import { trackEvent } from '../../utils/analytics';
 import { computeCanvasLayout } from '../../utils/canvasLayout';
+import { UploadDropIcon } from '../icons/Icons';
 
 interface ImageCanvasProps {
     canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -25,6 +26,7 @@ interface ImageCanvasProps {
     quality: number;
     canvasSize: CanvasSize;
     setCanvasSize: (size: CanvasSize) => void;
+    onBrowseFiles?: () => void;
 }
 
 function formatByteEstimate(bytes: number): string {
@@ -48,6 +50,7 @@ const ImageCanvas = ({
     quality,
     canvasSize,
     setCanvasSize,
+    onBrowseFiles,
 }: ImageCanvasProps) => {
     const [estimatedBytes, setEstimatedBytes] = useState<number | null>(null);
     const [zoomMode, setZoomMode] = useState<'fit' | 'actual'>('fit');
@@ -206,7 +209,33 @@ const ImageCanvas = ({
     const displayedEstimatedBytes = images.length === 0 ? null : estimatedBytes;
 
     return (
-        <div id="canvasContainer" className={images.length > 0 ? '' : 'hidden'}>
+        <>
+            {images.length === 0 && (
+                <section className="empty-dropzone" aria-labelledby="empty-dropzone-heading">
+                    <div className="empty-dropzone-icon">
+                        <UploadDropIcon />
+                    </div>
+                    <h2 id="empty-dropzone-heading">Drop images here to combine</h2>
+                    <p className="empty-dropzone-copy">
+                        Drag &amp; drop files anywhere on the page, paste screenshots with{' '}
+                        <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd>, or choose files from your device.
+                    </p>
+                    {onBrowseFiles && (
+                        <button
+                            type="button"
+                            className="empty-dropzone-btn"
+                            onClick={onBrowseFiles}
+                        >
+                            Choose Images
+                        </button>
+                    )}
+                    <p className="empty-dropzone-meta">
+                        PNG, JPEG, WebP, GIF &amp; AVIF · 100% private, processed locally in your browser
+                    </p>
+                </section>
+            )}
+
+            <div id="canvasContainer" className={images.length > 0 ? '' : 'hidden'}>
             <div className="canvas-toolbar">
                 <span className="canvas-dimensions" id="canvasDimensions">
                     {canvasSize.width} &times; {canvasSize.height} px
@@ -248,6 +277,7 @@ const ImageCanvas = ({
                 ></canvas>
             </div>
         </div>
+        </>
     );
 };
 

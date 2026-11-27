@@ -40,7 +40,11 @@ describe('App', () => {
     createMockCanvasContext();
     const { container } = render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Image Join' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'ImageJoin' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Drop images here to combine' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Combine, Stack & Arrange Images Privately' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download image' })).toBeDisabled();
     expect(container.querySelector('#canvasContainer')).toHaveClass('hidden');
 
@@ -189,5 +193,82 @@ describe('App', () => {
     );
     expect(JSON.stringify(window.dataLayer)).not.toContain('my-collage');
     expect(JSON.stringify(window.dataLayer)).not.toContain('pasted.png');
+  });
+
+  it('surfaces error banner for skipped files and supports Undo on Clear all', async () => {
+    const user = userEvent.setup();
+    createMockCanvasContext();
+
+    let urlCounter = 0;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:undo-${++urlCounter}`);
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    installMockImage();
+
+    const { container } = render(<App />);
+    const fileInput = container.querySelector('#upload') as HTMLInputElement;
+
+    await user.upload(fileInput, [new File(['1'], 'good.png', { type: 'image/png' })]);
+    await waitFor(() => {
+      expect(screen.getByText('1 image selected')).toBeInTheDocument();
+    });
+
+    // Drop a non-image file onto app-shell -> alert banner shown
+    const shell = container.querySelector('.app-shell') as HTMLElement;
+    fireEvent.drop(shell, {
+      dataTransfer: {
+        types: ['Files'],
+        files: [new File(['hello'], 'notes.txt', { type: 'text/plain' })],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/notes\.txt/);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss error' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Clear all -> image removed without immediate revocation, Undo restores it
+    await user.click(screen.getByRole('button', { name: 'Clear all' }));
+    expect(screen.getByText('No files chosen')).toBeInTheDocument();
+    expect(revokeSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByText('1 image selected')).toBeInTheDocument();
+
+    // Clear again and dismiss undo -> revokes the cleared Object URL
+    await user.click(screen.getByRole('button', { name: 'Clear all' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss undo notification' }));
+    expect(revokeSpy).toHaveBeenCalledWith('blob:undo-1');
+
+    // Empty dropzone CTA & FAQ toggle track dataLayer events cleanly
+    await user.click(screen.getByRole('button', { name: 'Choose Images' }));
+    await user.click(screen.getByText('Are my images uploaded to a server?'));
+
+    expect(window.dataLayer).toContainEqual({
+      event: 'file_ingest_error',
+      ingest_method: 'drag_drop',
+      skipped_count: 1,
+      loaded_count: 0,
+      is_debug_mode: true,
+    });
+    expect(window.dataLayer).toContainEqual({
+      event: 'image_list_action',
+      action_type: 'undo_clear',
+      image_count: 1,
+      is_debug_mode: true,
+    });
+    expect(window.dataLayer).toContainEqual({
+      event: 'empty_dropzone_browse',
+      image_count: 0,
+      is_debug_mode: true,
+    });
+    expect(window.dataLayer).toContainEqual({
+      event: 'faq_toggle',
+      faq_topic: 'privacy',
+      is_open: true,
+      is_debug_mode: true,
+    });
+    expect(JSON.stringify(window.dataLayer)).not.toContain('notes.txt');
   });
 });

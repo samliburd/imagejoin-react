@@ -4,6 +4,13 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { type ImageItem } from '../../types';
 import { trackEvent } from '../../utils/analytics';
+import {
+    ArrowDownIcon,
+    ArrowUpIcon,
+    CloseIcon,
+    FlipHorizontalIcon,
+    RotateCwIcon,
+} from '../icons/Icons';
 
 const MOBILE_BREAKPOINT_QUERY = '(max-width: 600px)';
 
@@ -47,10 +54,11 @@ function SortableImageItem({
                 type="button"
                 className={`item-action-btn up-arrow ${isFirst ? 'disabled' : ''}`}
                 aria-label={`Move ${img.originalName} up`}
+                title="Move up"
                 disabled={isFirst}
                 onClick={onMoveUp}
             >
-                &uarr;
+                <ArrowUpIcon />
             </button>
 
             <div className="preview-container">
@@ -74,7 +82,7 @@ function SortableImageItem({
                     title="Rotate 90°"
                     onClick={onRotate}
                 >
-                    &#8635;
+                    <RotateCwIcon />
                 </button>
                 <button
                     type="button"
@@ -84,16 +92,17 @@ function SortableImageItem({
                     title="Flip horizontally"
                     onClick={onFlip}
                 >
-                    &#8644;
+                    <FlipHorizontalIcon />
                 </button>
                 <button
                     type="button"
                     className={`item-action-btn down-arrow ${isLast ? 'disabled' : ''}`}
                     aria-label={`Move ${img.originalName} down`}
+                    title="Move down"
                     disabled={isLast}
                     onClick={onMoveDown}
                 >
-                    &darr;
+                    <ArrowDownIcon />
                 </button>
                 <button
                     type="button"
@@ -102,7 +111,7 @@ function SortableImageItem({
                     title="Remove image"
                     onClick={onRemove}
                 >
-                    &times;
+                    <CloseIcon />
                 </button>
             </div>
         </div>

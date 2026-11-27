@@ -24,12 +24,14 @@
             name="description"
             content="Combine, stack, arrange, and export multiple images privately in your browser. Supports vertical, horizontal, and grid layouts with JPEG, PNG, and WebP export."
     />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://imagejoin.app/" />
 
     <meta property="og:site_name" content="ImageJoin" />
+    <meta property="og:locale" content="en_US" />
     <meta
             property="og:title"
-            content="ImageJoin — Combine and Arrange Images Easily"
+            content="ImageJoin — Combine, Stack &amp; Arrange Images Online"
     />
     <meta
             property="og:description"
@@ -56,7 +58,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta
             name="twitter:title"
-            content="ImageJoin — Combine and Arrange Images Easily"
+            content="ImageJoin — Combine, Stack &amp; Arrange Images Online"
     />
     <meta
             name="twitter:description"
@@ -70,6 +72,34 @@
             name="twitter:image:alt"
             content="Preview of ImageJoin combining multiple images into a joined canvas"
     />
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "ImageJoin",
+            "url": "https://imagejoin.app/",
+            "description": "Combine, stack, arrange, and export multiple images privately in your browser. Supports vertical, horizontal, and grid layouts with JPEG, PNG, and WebP export.",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript and HTML5 Canvas",
+            "isAccessibleForFree": true,
+            "screenshot": "https://imagejoin.app/img/og-image.jpg?v=2",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            "featureList": [
+                "Vertical stack, horizontal row, and multi-column grid layouts",
+                "Drag-and-drop and arrow-button image reordering",
+                "Per-image 90-degree rotation and horizontal flip",
+                "Custom pixel width, gap, padding, and background color controls",
+                "100% client-side browser processing with JPEG, PNG, and WebP export",
+                "One-click clipboard image copy"
+            ]
+        }
+    </script>
 
     <meta name="theme-color" content="#2f3b45" />
     <meta name="mobile-web-app-capable" content="yes" />
