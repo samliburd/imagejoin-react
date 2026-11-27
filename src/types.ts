@@ -1,8 +1,7 @@
-// types.ts (or add to the top of App.tsx)
 export interface ImageItem {
     id: string;
-    src: string;          // The full, original high-res string
-    thumbnailSrc: string; // NEW: The tiny, compressed string for the UI
+    src: string;          // Object URL (blob:) or asset path for full-res canvas compositing
+    thumbnailSrc: string; // Downsampled 100px JPEG Data URL for sortable list rendering
     originalName: string;
     width: number;
     height: number;
@@ -10,3 +9,16 @@ export interface ImageItem {
 }
 
 export type Orientation = 'portrait' | 'landscape';
+
+export interface OrientationChangeEvent {
+    event: 'orientation_change';
+    selected_orientation: Orientation;
+}
+
+export type DataLayerEntry = OrientationChangeEvent | Record<string, unknown>;
+
+declare global {
+    interface Window {
+        dataLayer?: DataLayerEntry[];
+    }
+}

@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { type ComponentProps, type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { type ImageItem } from '../../types';
 
-// --- 1. Dedicated Sortable Item Component ---
+const MOBILE_BREAKPOINT_QUERY = '(max-width: 600px)';
+
+const getHelpText = (isMobile: boolean): string =>
+    isMobile ? 'Use the arrows to adjust image order.' : 'Drag images to reorder or use the arrows.';
+
 interface SortableImageItemProps {
     id: string;
     index: number;
@@ -15,22 +19,32 @@ interface SortableImageItemProps {
     onMoveDown: () => void;
 }
 
-function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDown }: SortableImageItemProps) {
-    // 1. Just pull the ref and dragging state
+function SortableImageItem({
+    id,
+    index,
+    img,
+    isFirst,
+    isLast,
+    onMoveUp,
+    onMoveDown,
+}: SortableImageItemProps) {
     const { ref, isDragging } = useSortable({ id, index });
 
     return (
         <div
             ref={ref}
-            // 2. Only pass the cursor style, let dnd-kit's popover handle the rest
             style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             className={`image-thumbnail ${isDragging ? 'dragging' : ''}`}
         >
             <button
+                type="button"
                 className={`up-arrow ${isFirst ? 'disabled' : ''}`}
+                aria-label={`Move ${img.originalName} up`}
                 disabled={isFirst}
                 onClick={onMoveUp}
-            >&uarr;</button>
+            >
+                &uarr;
+            </button>
 
             <div className="preview-container">
                 <img
@@ -43,26 +57,32 @@ function SortableImageItem({ id, index, img, isFirst, isLast, onMoveUp, onMoveDo
             </div>
 
             <button
+                type="button"
                 className={`down-arrow ${isLast ? 'disabled' : ''}`}
+                aria-label={`Move ${img.originalName} down`}
                 disabled={isLast}
                 onClick={onMoveDown}
-            >&darr;</button>
+            >
+                &darr;
+            </button>
         </div>
     );
 }
 
-// --- 2. Main List Component ---
 interface ImageListProps {
     images: ImageItem[];
-    setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
+    setImages: Dispatch<SetStateAction<ImageItem[]>>;
 }
 
-const ImageList = ({ images, setImages }: ImageListProps) => {
-    const [helpText, setHelpText] = useState('Drag images to reorder or use the arrows.');
+type DragEndHandler = NonNullable<ComponentProps<typeof DragDropProvider>['onDragEnd']>;
 
-    // --- Standard Button Ordering Logic ---
+const ImageList = ({ images, setImages }: ImageListProps) => {
+    const [helpText, setHelpText] = useState(() =>
+        getHelpText(window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches),
+    );
+
     const swapImages = (idx1: number, idx2: number) => {
-        setImages(prev => {
+        setImages((prev) => {
             const newImages = [...prev];
             [newImages[idx1], newImages[idx2]] = [newImages[idx2], newImages[idx1]];
             return newImages;
@@ -77,29 +97,23 @@ const ImageList = ({ images, setImages }: ImageListProps) => {
         if (idx < images.length - 1) swapImages(idx, idx + 1);
     };
 
-    // --- dnd-kit Drag End Handler ---
-    const handleDragEnd = (event: any) => {
+    const handleDragEnd: DragEndHandler = (event) => {
         if (event.canceled) return;
         setImages((prevImages) => move(prevImages, event));
     };
 
-    // --- Effects ---
     useEffect(() => {
-        const mediaQuery = window.matchMedia('(max-width: 600px)');
-        const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
-            setHelpText(e.matches ? 'Use the arrows to adjust image order.' : 'Drag images to reorder or use the arrows.');
+        const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+        const handleMediaChange = (e: MediaQueryListEvent) => {
+            setHelpText(getHelpText(e.matches));
         };
 
         mediaQuery.addEventListener('change', handleMediaChange);
-        handleMediaChange(mediaQuery);
-
         return () => mediaQuery.removeEventListener('change', handleMediaChange);
     }, []);
 
     return (
         <div id="ImageList" className={images.length > 0 ? '' : 'hidden'}>
-
-            {/* Wrap the list in the Provider */}
             <DragDropProvider onDragEnd={handleDragEnd}>
                 <div id="imageList">
                     {images.map((img, index) => (

@@ -1,11 +1,6 @@
-import { useState, useEffect } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useState } from 'react';
 import { type ImageItem, type Orientation } from '../../types';
-
-declare global {
-    interface Window {
-        dataLayer: any[];
-    }
-}
+import { loadImage, loadImageFiles } from '../../utils/imageLoader';
 
 const TEST_IMAGES = [
     'testimg/1.webp',
@@ -18,7 +13,7 @@ const TEST_IMAGES = [
 
 interface FileControlsProps {
     images: ImageItem[];
-    setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
+    onReplaceImages: (nextImages: ImageItem[]) => void;
     orientation: Orientation;
     setOrientation: (val: Orientation) => void;
     scaleToLargest: boolean;
@@ -33,100 +28,56 @@ interface FileControlsProps {
 }
 
 const FileControls = ({
-                          images,
-                          setImages,
-                          orientation,
-                          setOrientation,
-                          scaleToLargest,
-                          setScaleToLargest,
-                          filename,
-                          setFilename,
-                          onDownload,
-                          debug,
-                          customWidth,
-                          setCustomWidth,
-                          canvasWidth
-                      }: FileControlsProps) => {
+    images,
+    onReplaceImages,
+    orientation,
+    setOrientation,
+    scaleToLargest,
+    setScaleToLargest,
+    filename,
+    setFilename,
+    onDownload,
+    debug,
+    customWidth,
+    setCustomWidth,
+    canvasWidth,
+}: FileControlsProps) => {
     const [isDebugMode, setIsDebugMode] = useState(false);
 
-    // Local state allows typing freely without triggering canvas renders
+    // Local state buffers keystrokes without triggering canvas renders; synced if parent resets customWidth
     const [localWidth, setLocalWidth] = useState<string>(customWidth);
-
-    useEffect(() => {
+    const [prevCustomWidth, setPrevCustomWidth] = useState<string>(customWidth);
+    if (prevCustomWidth !== customWidth) {
+        setPrevCustomWidth(customWidth);
         setLocalWidth(customWidth);
-    }, [customWidth]);
+    }
 
-    const generateThumbnail = (img: HTMLImageElement, maxWidth = 100): string => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return img.src;
-        const scale = Math.min(maxWidth / img.width, 1);
-        const newWidth = img.width * scale;
-        const newHeight = img.height * scale;
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
-        return canvas.toDataURL('image/jpeg', 0.5);
-    };
-
-    const loadImage = (src: string, name: string): Promise<ImageItem> => {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                const tinySrc = generateThumbnail(img, 100);
-                resolve({
-                    id: crypto.randomUUID(),
-                    src: src,
-                    thumbnailSrc: tinySrc,
-                    originalName: name,
-                    width: img.width,
-                    height: img.height,
-                    imgElement: img
-                });
-            };
-            img.onerror = () => reject(`Failed to load: ${name}`);
-            img.src = src;
-        });
-    };
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         try {
-            const filePromises = Array.from(files).map(file => {
-                return new Promise<ImageItem>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = async () => {
-                        try {
-                            const loaded = await loadImage(reader.result as string, file.name);
-                            resolve(loaded);
-                        } catch (err) {
-                            reject(err);
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                });
-            });
-            const loadedImages = await Promise.all(filePromises);
-            setImages(loadedImages);
+            const loadedImages = await loadImageFiles(files);
+            onReplaceImages(loadedImages);
         } catch (error) {
             console.error(error);
         }
         e.target.value = '';
     };
 
-    const handleDebugToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleDebugToggle = async (e: ChangeEvent<HTMLInputElement>) => {
         const isChecked = e.target.checked;
         setIsDebugMode(isChecked);
         if (isChecked) {
             try {
-                const loaded = await Promise.all(TEST_IMAGES.map(src => loadImage(src, src.split('/').pop() || 'test')));
-                setImages(loaded);
+                const loaded = await Promise.all(
+                    TEST_IMAGES.map((src) => loadImage(src, src.split('/').pop() || 'test')),
+                );
+                onReplaceImages(loaded);
             } catch (err) {
                 console.error(err);
             }
         } else {
-            setImages([]);
+            onReplaceImages([]);
         }
     };
 
@@ -139,10 +90,7 @@ const FileControls = ({
         });
     };
 
-    // --- CLEANED Width Logic ---
-
-    const handleWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // Pure text updater. No intercepting logic.
+    const handleWidthChange = (e: ChangeEvent<HTMLInputElement>) => {
         setLocalWidth(e.target.value);
     };
 
@@ -154,17 +102,16 @@ const FileControls = ({
             return;
         }
 
-        // Just ensure it's a valid number greater than 0 before pushing to canvas
         const parsed = parseInt(val, 10);
         if (!isNaN(parsed) && parsed > 0) {
             setCustomWidth(parsed.toString());
         } else {
-            // If they typed "-50" or "abc", reset the input box back to the last safe value
+            // Revert invalid inputs back to the last valid committed width
             setLocalWidth(customWidth);
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             applyWidth();
@@ -172,38 +119,54 @@ const FileControls = ({
     };
 
     const hasCustomWidth = localWidth.trim() !== '';
+    const fileLabelText =
+        images.length === 0
+            ? 'No files chosen'
+            : `${images.length} ${images.length === 1 ? 'image' : 'images'} selected`;
 
     return (
         <div id="FileControls">
             <label className="file-upload">
-                <input type="file" name="upload" id="upload" multiple hidden onChange={handleFileUpload} />
+                <input
+                    type="file"
+                    name="upload"
+                    id="upload"
+                    multiple
+                    hidden
+                    onChange={handleFileUpload}
+                />
                 <span className="file-btn">Choose Files</span>
                 <span className="file-label" id="fileLabel">
-                    {images.length > 0 ? `${images.length} images selected` : 'No files chosen'}
+                    {fileLabelText}
                 </span>
             </label>
 
             <div className="dropdownContainer">
-                <label htmlFor="orientationDropdown">Orientation:</label>
-                <div id="orientationButtons">
+                <span id="orientationLabel" className="orientation-label">
+                    Orientation:
+                </span>
+                <div id="orientationButtons" role="group" aria-labelledby="orientationLabel">
                     <button
-                        className="orientationButton"
+                        type="button"
+                        className={`orientationButton ${orientation === 'portrait' ? 'active' : ''}`}
+                        aria-label="Portrait (vertical stack)"
+                        aria-pressed={orientation === 'portrait'}
+                        title="Portrait (vertical stack)"
                         onClick={() => handleOrientationChange('portrait')}
-                    >&#8597;</button>
+                    >
+                        &#8597;
+                    </button>
                     <button
-                        className="orientationButton"
+                        type="button"
+                        className={`orientationButton ${orientation === 'landscape' ? 'active' : ''}`}
+                        aria-label="Landscape (horizontal row)"
+                        aria-pressed={orientation === 'landscape'}
+                        title="Landscape (horizontal row)"
                         onClick={() => handleOrientationChange('landscape')}
-                    >&#8596;</button>
+                    >
+                        &#8596;
+                    </button>
                 </div>
-                <select
-                    name="orientationDropdown"
-                    id="orientationDropdown"
-                    value={orientation}
-                    onChange={(e) => handleOrientationChange(e.target.value as Orientation)}
-                >
-                    <option value="portrait">Portrait</option>
-                    <option value="landscape">Landscape</option>
-                </select>
             </div>
 
             <div className="checkboxContainer" style={{ opacity: hasCustomWidth ? 0.5 : 1 }}>
@@ -218,7 +181,6 @@ const FileControls = ({
                 />
             </div>
 
-
             <label className="textInput" htmlFor="customWidth">
                 <span className="label-text">Width:</span>
                 <div className="input-wrapper">
@@ -231,7 +193,9 @@ const FileControls = ({
                         onChange={handleWidthChange}
                         onKeyDown={handleKeyDown}
                     />
-                    <button type="button" onClick={applyWidth}>Go</button>
+                    <button type="button" onClick={applyWidth}>
+                        Go
+                    </button>
                 </div>
             </label>
 
@@ -260,6 +224,7 @@ const FileControls = ({
             )}
 
             <button
+                type="button"
                 id="download"
                 onClick={onDownload}
                 disabled={images.length === 0}
