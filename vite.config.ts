@@ -10,12 +10,16 @@ export default defineConfig({
           importScripts: ['share-target-sw.js'],
       },
       manifest: {
+          id: '/',
           name: 'ImageJoin',
           short_name: 'ImageJoin',
-          description: 'Tool to join two or more images using the Canvas API',
+          description: 'Combine, stack, arrange, and export multiple images privately in your browser.',
+          start_url: '/',
+          scope: '/',
           theme_color: '#2f3b45',
           background_color: '#2f3b45',
           display: 'standalone',
+          categories: ['photo', 'utilities', 'productivity'],
           file_handlers: [
               {
                   action: '/',
@@ -39,27 +43,38 @@ export default defineConfig({
                   ],
               },
           },
-          icons: [{
-              "src": "pwa-64x64.png",
-              "sizes": "64x64",
-              "type": "image/png"
-          },
+          icons: [
               {
-                  "src": "pwa-192x192.png",
-                  "sizes": "192x192",
-                  "type": "image/png"
+                  src: 'pwa-64x64.png',
+                  sizes: '64x64',
+                  type: 'image/png',
+                  purpose: 'any',
               },
               {
-                  "src": "pwa-512x512.png",
-                  "sizes": "512x512",
-                  "type": "image/png"
+                  src: 'pwa-192x192.png',
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'any',
               },
               {
-                  "src": "maskable-icon-512x512.png",
-                  "sizes": "512x512",
-                  "type": "image/png",
-                  "purpose": "maskable"
-              }]
+                  src: 'pwa-512x512.png',
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'any',
+              },
+              {
+                  src: 'icon.svg',
+                  sizes: 'any',
+                  type: 'image/svg+xml',
+                  purpose: 'any',
+              },
+              {
+                  src: 'maskable-icon-512x512.png',
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'maskable',
+              },
+          ]
       }
   })],
 })

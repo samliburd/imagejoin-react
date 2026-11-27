@@ -40,12 +40,13 @@ imagejoin-react/
 ├── vitest.config.ts                  # Vitest + jsdom test runner configuration
 ├── public/                           # Static unbundled assets copied directly to dist root
 │   ├── apple-touch-icon-180x180.png  # iOS home screen icon
-│   ├── favicon.ico                   # Legacy browser favicon (48x48)
+│   ├── favicon.ico                   # Multi-size browser favicon (16x16, 32x32, 48x48)
 │   ├── icon.svg                      # Scalable vector application icon
 │   ├── maskable-icon-512x512.png     # Android adaptive maskable PWA icon
 │   ├── pwa-64x64.png                 # Standard 64x64 PWA manifest icon
 │   ├── pwa-192x192.png               # Standard 192x192 PWA manifest icon
 │   ├── pwa-512x512.png               # Standard 512x512 PWA manifest icon
+│   ├── robots.txt                    # Search crawler allow-all policy
 │   ├── share-target-sw.js            # Workbox SW extension caching POST /share-target image files
 │   ├── img/
 │   │   └── og-image.jpg              # OpenGraph and Twitter Card social preview banner
@@ -147,7 +148,7 @@ flowchart TB
 | :----------------------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
 | **User File Ingestion**        | Inbound (`LocalFS -> App`)        | `<input type="file">`, drag-drop, `paste`, `launchQueue`, and `share-target-sw.js` + `URL.createObjectURL`                             | Local raster image files mapped to in-memory `blob:` Object URLs and `HTMLImageElement` instances without Base64 duplication. |
 | **Joined Image Export & Copy** | Outbound (`App -> LocalFS`)       | `HTMLCanvasElement.toBlob` (`image/jpeg`, `image/png`, `image/webp`) + `<a download>` or `navigator.clipboard.write` (`ClipboardItem`) | Composited image saved directly to the downloads folder as `<filename>.<ext>` or copied to the system clipboard as PNG.       |
-| **Google Tag Manager**         | Outbound (`App -> GTM`)           | `window.dataLayer.push()` via GTM script in [`index.html`](./index.html#L7-L21)                                                        | Lifecycle events and custom `orientation_change` events containing `selected_orientation`.                                    |
+| **Google Tag Manager**         | Outbound (`App -> GTM`)           | `window.dataLayer.push()` via GTM script in [`index.html`](./index.html#L8-L22)                                                        | Lifecycle events and custom `orientation_change` events containing `selected_orientation`.                                    |
 | **PWA Service Worker**         | Bidirectional (`Browser <-> CDN`) | `vite-plugin-pwa` (`registerType: 'autoUpdate'`) + [`public/share-target-sw.js`](./public/share-target-sw.js)                          | Static asset precaching, offline execution capability, and local share-target Cache Storage handoff.                          |
 
 ---
@@ -339,7 +340,7 @@ flowchart LR
 ### Operational Prerequisites & Environment Variables
 
 - **Node.js & Package Manager**: Uses ES Modules (`"type": "module"`) managed via Yarn 4 (`yarn@4.18.1`) configured with `nodeLinker: node-modules` in [`.yarnrc.yml`](./.yarnrc.yml) and [`yarn.lock`](./yarn.lock).
-- **Hosting Target**: Deployed as a static site on Cloudflare Pages (`https://imagejoin.app`), referenced in canonical, OpenGraph, and Twitter tags in [`index.html`](./index.html#L26-L63).
+- **Hosting Target**: Deployed as a static site on Cloudflare Pages (`https://imagejoin.app`), referenced in canonical, OpenGraph, and Twitter tags in [`index.html`](./index.html#L27-L73).
 - **Runtime Flags**:
   - `import.meta.env.DEV` ([`src/App.tsx`](./src/App.tsx#L44)): Automatically injected by Vite; controls default visibility of `#debugContainer`.
   - `?debug=true` / `?debug=false` ([`src/App.tsx`](./src/App.tsx#L39-L45)): URL query parameter to override debug fixture controls in Vite dev mode or on `localhost` / `127.0.0.1`.
@@ -401,7 +402,7 @@ Because ImageJoin is an offline-capable client-side utility, its security postur
 1. **Zero Remote Image Transmission**:
    - User-uploaded, dropped, pasted, and shared files are mapped strictly to local `blob:` Object URLs via `URL.createObjectURL()` ([`src/utils/imageLoader.ts`](./src/utils/imageLoader.ts#L60-L73)) and decoded into local `HTMLImageElement` instances. No image binary data, filenames, or canvas outputs are ever transmitted over the network.
 2. **Trust Boundaries & Third-Party Scripts**:
-   - **Google Tag Manager (`GTM-M99M3C5P`)**: Loaded asynchronously from `https://www.googletagmanager.com/gtm.js` in [`index.html`](./index.html#L7-L21). Only high-level UI metadata (`event: 'orientation_change'`, `selected_orientation`) is pushed to `window.dataLayer` ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L130-L137)).
+   - **Google Tag Manager (`GTM-M99M3C5P`)**: Loaded asynchronously from `https://www.googletagmanager.com/gtm.js` in [`index.html`](./index.html#L8-L22). Only high-level UI metadata (`event: 'orientation_change'`, `selected_orientation`) is pushed to `window.dataLayer` ([`src/components/filecontrols/FileControls.tsx`](./src/components/filecontrols/FileControls.tsx#L130-L137)).
 3. **Input Validation & Sanitization**:
    - **Custom Width, Gap, Padding & Columns Parsing**: Numeric inputs are parsed and clamped (`gap`/`padding` `0–200`, `columns` `1–12`, `customWidth > 0`) before reaching [`computeCanvasLayout`](./src/utils/canvasLayout.ts#L68-L82).
    - **Download Filename Handling**: Export filenames are trimmed via `filename.trim() || 'joinedimage'` and assigned to the `download` attribute of an in-memory `<a>` element ([`src/App.tsx`](./src/App.tsx#L27-L32), [`src/App.tsx`](./src/App.tsx#L223-L249)), which browsers automatically sanitize against path traversal characters.
