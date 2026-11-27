@@ -48,6 +48,18 @@ describe('App', () => {
     expect(container.querySelector('#helpDialog')).toHaveAttribute('open');
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(container.querySelector('#helpDialog')).not.toHaveAttribute('open');
+    expect(window.dataLayer).toContainEqual({
+      event: 'help_dialog_toggle',
+      action: 'open',
+      image_count: 0,
+      is_debug_mode: true,
+    });
+    expect(window.dataLayer).toContainEqual({
+      event: 'help_dialog_toggle',
+      action: 'close',
+      image_count: 0,
+      is_debug_mode: true,
+    });
   });
 
   it('gates debug controls via ?debug query parameter', () => {
@@ -150,5 +162,32 @@ describe('App', () => {
 
     expect(toBlobSpy).toHaveBeenCalledWith(expect.any(Function), 'image/png', undefined);
     expect(downloads.at(-1)?.name).toBe('my-collage.png');
+
+    // 7. Verify full dataLayer coverage without leaking raw filenames
+    const events = (window.dataLayer ?? []).filter(
+      (entry): entry is Record<string, unknown> => 'event' in entry,
+    );
+    expect(events.map((e) => e.event)).toEqual(
+      expect.arrayContaining([
+        'images_added',
+        'image_list_action',
+        'option_change',
+        'image_copy',
+        'image_export',
+      ]),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        event: 'image_export',
+        export_method: 'download',
+        export_format: 'png',
+        has_custom_filename: true,
+        rotated_image_count: 1,
+        image_count: 3,
+        is_debug_mode: true,
+      }),
+    );
+    expect(JSON.stringify(window.dataLayer)).not.toContain('my-collage');
+    expect(JSON.stringify(window.dataLayer)).not.toContain('pasted.png');
   });
 });

@@ -29,10 +29,19 @@ export function generateThumbnail(img: HTMLImageElement, maxWidth = 100): string
     return canvas.toDataURL('image/jpeg', 0.5);
 }
 
+export interface ImageFileMeta {
+    mimeType?: string;
+    fileSize?: number;
+}
+
 /**
  * Decodes an image source into an HTMLImageElement and generates its thumbnail.
  */
-export function loadImage(src: string, name: string): Promise<ImageItem> {
+export function loadImage(
+    src: string,
+    name: string,
+    meta?: ImageFileMeta,
+): Promise<ImageItem> {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
@@ -47,6 +56,8 @@ export function loadImage(src: string, name: string): Promise<ImageItem> {
                 imgElement: img,
                 rotation: 0,
                 flipH: false,
+                ...(meta?.mimeType ? { mimeType: meta.mimeType } : {}),
+                ...(meta?.fileSize !== undefined ? { fileSize: meta.fileSize } : {}),
             });
         };
         img.onerror = () => reject(new Error(`Failed to load: ${name}`));
@@ -66,7 +77,12 @@ export async function loadImageFiles(files: FileList | readonly File[]): Promise
 
     try {
         return await Promise.all(
-            fileList.map((file, index) => loadImage(objectUrls[index], file.name)),
+            fileList.map((file, index) =>
+                loadImage(objectUrls[index], file.name, {
+                    mimeType: file.type || undefined,
+                    fileSize: file.size,
+                }),
+            ),
         );
     } catch (error) {
         objectUrls.forEach((url) => URL.revokeObjectURL(url));

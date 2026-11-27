@@ -19,8 +19,8 @@ export interface CanvasLayoutResult {
     exceedsLimits: boolean;
 }
 
-const MAX_CANVAS_EDGE = 16384;
-const MAX_CANVAS_AREA = 268_435_456;
+export const MAX_CANVAS_EDGE = 16384;
+export const MAX_CANVAS_AREA = 268_435_456;
 
 /**
  * Returns the effective visual dimensions of an image after applying 90/270-degree rotation.

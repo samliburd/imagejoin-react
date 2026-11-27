@@ -107,9 +107,21 @@ describe('ImageList', () => {
 
     await user.click(screen.getByRole('button', { name: 'Move first.png down' }));
     expect(getOrder()).toEqual(['second.png', 'first.png', 'third.png']);
+    expect(window.dataLayer).toContainEqual({
+      event: 'image_list_action',
+      action_type: 'move_down',
+      image_count: 3,
+      is_debug_mode: true,
+    });
 
     await user.click(screen.getByRole('button', { name: 'Move third.png up' }));
     expect(getOrder()).toEqual(['second.png', 'third.png', 'first.png']);
+    expect(window.dataLayer).toContainEqual({
+      event: 'image_list_action',
+      action_type: 'move_up',
+      image_count: 3,
+      is_debug_mode: true,
+    });
 
     await user.click(screen.getByRole('button', { name: 'Rotate first.png 90 degrees' }));
     expect(onRotateImage).toHaveBeenCalledWith('id-1');

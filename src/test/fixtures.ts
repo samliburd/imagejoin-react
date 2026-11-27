@@ -10,6 +10,8 @@ export interface MockImageItemOptions {
   height?: number;
   rotation?: Rotation;
   flipH?: boolean;
+  mimeType?: string;
+  fileSize?: number;
 }
 
 let idCounter = 0;
@@ -42,6 +44,8 @@ export function createMockImageItem(options: MockImageItemOptions = {}): ImageIt
     imgElement,
     rotation: options.rotation ?? 0,
     flipH: options.flipH ?? false,
+    ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+    ...(options.fileSize !== undefined ? { fileSize: options.fileSize } : {}),
   };
 }
 

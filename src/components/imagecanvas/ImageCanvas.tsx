@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
     type Alignment,
     type CanvasSize,
@@ -7,6 +7,7 @@ import {
     type Orientation,
     type SizeMode,
 } from '../../types';
+import { trackEvent } from '../../utils/analytics';
 import { computeCanvasLayout } from '../../utils/canvasLayout';
 
 interface ImageCanvasProps {
@@ -50,6 +51,7 @@ const ImageCanvas = ({
 }: ImageCanvasProps) => {
     const [estimatedBytes, setEstimatedBytes] = useState<number | null>(null);
     const [zoomMode, setZoomMode] = useState<'fit' | 'actual'>('fit');
+    const prevExceedsLimitsRef = useRef(false);
 
     const layout = useMemo(
         () =>
@@ -64,6 +66,20 @@ const ImageCanvas = ({
             }),
         [images, orientation, sizeMode, alignment, customWidth, columns, gap, padding],
     );
+
+    useEffect(() => {
+        const isExceeding = layout.exceedsLimits && images.length > 0;
+        if (!prevExceedsLimitsRef.current && isExceeding) {
+            trackEvent({
+                event: 'canvas_limit_warning',
+                canvas_width: layout.width,
+                canvas_height: layout.height,
+                image_count: images.length,
+                orientation,
+            });
+        }
+        prevExceedsLimitsRef.current = isExceeding;
+    }, [layout.exceedsLimits, layout.width, layout.height, images.length, orientation]);
 
     useEffect(() => {
         let isActive = true;
@@ -202,7 +218,16 @@ const ImageCanvas = ({
                     type="button"
                     className={`zoom-toggle ${zoomMode === 'actual' ? 'active' : ''}`}
                     aria-pressed={zoomMode === 'actual'}
-                    onClick={() => setZoomMode((prev) => (prev === 'fit' ? 'actual' : 'fit'))}
+                    onClick={() => {
+                        const nextMode = zoomMode === 'fit' ? 'actual' : 'fit';
+                        setZoomMode(nextMode);
+                        trackEvent({
+                            event: 'canvas_zoom_toggle',
+                            zoom_mode: nextMode,
+                            canvas_width: canvasSize.width,
+                            canvas_height: canvasSize.height,
+                        });
+                    }}
                 >
                     {zoomMode === 'fit' ? '100% Zoom' : 'Fit View'}
                 </button>

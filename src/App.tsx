@@ -10,10 +10,17 @@ import {
     type CanvasSize,
     type ExportFormat,
     type ImageItem,
+    type IngestMethod,
     type Orientation,
     type Rotation,
     type SizeMode,
 } from './types';
+import {
+    buildExportSnapshot,
+    extractFileTypes,
+    sumFileSizeKb,
+    trackEvent,
+} from './utils/analytics';
 import { filterImageFiles, loadImageFiles, revokeImageUrls } from './utils/imageLoader';
 
 const FORMAT_EXTENSION: Record<ExportFormat, string> = {
@@ -65,6 +72,11 @@ function App() {
     const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastCopyMessageRef = useRef<string>('');
     const dragDepthRef = useRef<number>(0);
+    const imagesRef = useRef<ImageItem[]>(images);
+
+    useEffect(() => {
+        imagesRef.current = images;
+    }, [images]);
 
     const replaceImages = useCallback((nextImages: ImageItem[]) => {
         setImages((prev) => {
@@ -78,30 +90,81 @@ function App() {
         setImages((prev) => [...prev, ...moreImages]);
     }, []);
 
+    const appendIngestedImages = useCallback(
+        (loaded: ImageItem[], ingestMethod: IngestMethod) => {
+            if (loaded.length === 0) return;
+            const nextCount = imagesRef.current.length + loaded.length;
+            appendImages(loaded);
+            trackEvent({
+                event: 'images_added',
+                ingest_method: ingestMethod,
+                added_count: loaded.length,
+                image_count: nextCount,
+                file_types: extractFileTypes(loaded),
+                total_input_kb: sumFileSizeKb(loaded),
+            });
+        },
+        [appendImages],
+    );
+
     const removeImage = useCallback((id: string) => {
+        const current = imagesRef.current;
+        const hasTarget = current.some((item) => item.id === id);
         setImages((prev) => {
             const target = prev.find((item) => item.id === id);
             if (target) revokeImageUrls([target]);
             return prev.filter((item) => item.id !== id);
         });
+        if (hasTarget) {
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'remove',
+                image_count: Math.max(0, current.length - 1),
+            });
+        }
     }, []);
 
     const rotateImage = useCallback((id: string) => {
+        const current = imagesRef.current;
+        const target = current.find((item) => item.id === id);
         setImages((prev) =>
             prev.map((item) =>
                 item.id === id ? { ...item, rotation: nextRotation(item.rotation) } : item,
             ),
         );
+        if (target) {
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'rotate',
+                image_count: current.length,
+                rotation_deg: nextRotation(target.rotation),
+            });
+        }
     }, []);
 
     const flipImage = useCallback((id: string) => {
+        const current = imagesRef.current;
+        const target = current.find((item) => item.id === id);
         setImages((prev) =>
             prev.map((item) => (item.id === id ? { ...item, flipH: !item.flipH } : item)),
         );
+        if (target) {
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'flip',
+                image_count: current.length,
+                is_flipped: !target.flipH,
+            });
+        }
     }, []);
 
     const clearImages = useCallback(() => {
         replaceImages([]);
+        trackEvent({
+            event: 'image_list_action',
+            action_type: 'clear_all',
+            image_count: 0,
+        });
     }, [replaceImages]);
 
     const showCopyFeedback = useCallback((ok: boolean) => {
@@ -141,7 +204,7 @@ function App() {
             e.preventDefault();
             try {
                 const loaded = await loadImageFiles(imageFiles);
-                appendImages(loaded);
+                appendIngestedImages(loaded, 'paste');
             } catch (err) {
                 console.error(err);
             }
@@ -149,7 +212,7 @@ function App() {
 
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
-    }, [appendImages]);
+    }, [appendIngestedImages]);
 
     // PWA File Handling API (launchQueue)
     useEffect(() => {
@@ -159,12 +222,12 @@ function App() {
             try {
                 const files = await Promise.all(launchParams.files.map((handle) => handle.getFile()));
                 const loaded = await loadImageFiles(files);
-                appendImages(loaded);
+                appendIngestedImages(loaded, 'pwa_file_handler');
             } catch (err) {
                 console.error(err);
             }
         });
-    }, [appendImages]);
+    }, [appendIngestedImages]);
 
     // PWA Share Target consumption (?shared=1 from share-target-sw.js)
     useEffect(() => {
@@ -188,7 +251,7 @@ function App() {
                 }
                 if (active && files.length > 0) {
                     const loaded = await loadImageFiles(files);
-                    appendImages(loaded);
+                    appendIngestedImages(loaded, 'pwa_share_target');
                 }
                 window.history.replaceState({}, '', '/');
             } catch (err) {
@@ -199,7 +262,7 @@ function App() {
         return () => {
             active = false;
         };
-    }, [appendImages]);
+    }, [appendIngestedImages]);
 
     const getExportSourceCanvas = (format: ExportFormat): HTMLCanvasElement | null => {
         const canvas = canvasRef.current;
@@ -220,6 +283,55 @@ function App() {
         return canvas;
     };
 
+    const emitExportEvent = (outputBytes?: number) => {
+        const snapshot = buildExportSnapshot({
+            images,
+            orientation,
+            columns,
+            sizeMode,
+            customWidth,
+            alignment,
+            gap,
+            padding,
+            backgroundColor,
+            exportFormat,
+            quality,
+            filename,
+            canvasSize,
+            outputBytes,
+        });
+        trackEvent({
+            event: 'image_export',
+            export_method: 'download',
+            ...snapshot,
+        });
+    };
+
+    const emitCopyEvent = (copySuccess: boolean, outputBytes?: number) => {
+        const snapshot = buildExportSnapshot({
+            images,
+            orientation,
+            columns,
+            sizeMode,
+            customWidth,
+            alignment,
+            gap,
+            padding,
+            backgroundColor,
+            exportFormat,
+            quality,
+            filename,
+            canvasSize,
+            outputBytes,
+        });
+        trackEvent({
+            event: 'image_copy',
+            export_method: 'clipboard',
+            copy_success: copySuccess,
+            ...snapshot,
+        });
+    };
+
     const handleDownload = () => {
         const sourceCanvas = getExportSourceCanvas(exportFormat);
         if (!sourceCanvas) return;
@@ -235,8 +347,10 @@ function App() {
                         const blobUrl = URL.createObjectURL(blob);
                         triggerDownload(blobUrl, downloadName);
                         setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+                        emitExportEvent(blob.size);
                     } else {
                         triggerDownload(sourceCanvas.toDataURL(exportFormat, exportQuality), downloadName);
+                        emitExportEvent();
                     }
                 },
                 exportFormat,
@@ -246,12 +360,14 @@ function App() {
         }
 
         triggerDownload(sourceCanvas.toDataURL(exportFormat, exportQuality), downloadName);
+        emitExportEvent();
     };
 
     const handleCopy = async () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        let blob: Blob | null = null;
         try {
             if (
                 typeof navigator.clipboard?.write !== 'function' ||
@@ -259,22 +375,26 @@ function App() {
                 typeof canvas.toBlob !== 'function'
             ) {
                 showCopyFeedback(false);
+                emitCopyEvent(false);
                 return;
             }
 
-            const blob = await new Promise<Blob | null>((resolve) => {
+            blob = await new Promise<Blob | null>((resolve) => {
                 canvas.toBlob((result) => resolve(result), 'image/png');
             });
 
             if (!blob) {
                 showCopyFeedback(false);
+                emitCopyEvent(false);
                 return;
             }
 
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
             showCopyFeedback(true);
+            emitCopyEvent(true, blob.size);
         } catch {
             showCopyFeedback(false);
+            emitCopyEvent(false, blob?.size);
         }
     };
 
@@ -312,7 +432,7 @@ function App() {
 
         try {
             const loaded = await loadImageFiles(droppedFiles);
-            appendImages(loaded);
+            appendIngestedImages(loaded, 'drag_drop');
         } catch (err) {
             console.error(err);
         }
@@ -334,7 +454,14 @@ function App() {
                     className="help-btn"
                     aria-label="Open help and keyboard shortcuts"
                     title="Help & shortcuts"
-                    onClick={() => setIsHelpOpen(true)}
+                    onClick={() => {
+                        setIsHelpOpen(true);
+                        trackEvent({
+                            event: 'help_dialog_toggle',
+                            action: 'open',
+                            image_count: images.length,
+                        });
+                    }}
                 >
                     ?
                 </button>
@@ -407,7 +534,17 @@ function App() {
                 />
             </main>
 
-            <HelpDialog isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+            <HelpDialog
+                isOpen={isHelpOpen}
+                onClose={() => {
+                    setIsHelpOpen(false);
+                    trackEvent({
+                        event: 'help_dialog_toggle',
+                        action: 'close',
+                        image_count: images.length,
+                    });
+                }}
+            />
         </div>
     );
 }

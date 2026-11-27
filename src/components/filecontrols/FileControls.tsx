@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type KeyboardEvent, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, type KeyboardEvent, useRef, useState } from 'react';
 import {
     type Alignment,
     type ExportFormat,
@@ -6,6 +6,13 @@ import {
     type Orientation,
     type SizeMode,
 } from '../../types';
+import {
+    classifyBackground,
+    extractFileTypes,
+    formatExportType,
+    sumFileSizeKb,
+    trackEvent,
+} from '../../utils/analytics';
 import { loadImage, loadImageFiles } from '../../utils/imageLoader';
 
 const TEST_IMAGES = [
@@ -98,17 +105,30 @@ const FileControls = ({
         setLocalWidth(customWidth);
     }
 
+    const prevDetailsOpenRef = useRef<boolean>(false);
+    const lastTrackedQualityRef = useRef<number>(Math.round(quality * 100));
+
     const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>, mode: 'replace' | 'append') => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         try {
             const loadedImages = await loadImageFiles(files);
             if (loadedImages.length > 0) {
+                const nextCount =
+                    mode === 'append' ? images.length + loadedImages.length : loadedImages.length;
                 if (mode === 'append') {
                     onAppendImages(loadedImages);
                 } else {
                     onReplaceImages(loadedImages);
                 }
+                trackEvent({
+                    event: 'images_added',
+                    ingest_method: mode === 'append' ? 'picker_append' : 'picker_replace',
+                    added_count: loadedImages.length,
+                    image_count: nextCount,
+                    file_types: extractFileTypes(loadedImages),
+                    total_input_kb: sumFileSizeKb(loadedImages),
+                });
             }
         } catch (error) {
             console.error(error);
@@ -125,20 +145,32 @@ const FileControls = ({
                     TEST_IMAGES.map((src) => loadImage(src, src.split('/').pop() || 'test')),
                 );
                 onReplaceImages(loaded);
+                trackEvent({
+                    event: 'images_added',
+                    ingest_method: 'debug_fixture',
+                    added_count: loaded.length,
+                    image_count: loaded.length,
+                    file_types: extractFileTypes(loaded),
+                });
             } catch (err) {
                 console.error(err);
             }
         } else {
             onReplaceImages([]);
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'clear_all',
+                image_count: 0,
+            });
         }
     };
 
     const handleOrientationChange = (newOrientation: Orientation) => {
         setOrientation(newOrientation);
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({
+        trackEvent({
             event: 'orientation_change',
             selected_orientation: newOrientation,
+            image_count: images.length,
         });
     };
 
@@ -150,13 +182,30 @@ const FileControls = ({
         const val = localWidth.trim();
 
         if (val === '') {
+            if (customWidth !== '') {
+                trackEvent({
+                    event: 'option_change',
+                    option_name: 'custom_width',
+                    option_value: 'auto',
+                    image_count: images.length,
+                });
+            }
             setCustomWidth('');
             return;
         }
 
         const parsed = parseInt(val, 10);
         if (!isNaN(parsed) && parsed > 0) {
-            setCustomWidth(parsed.toString());
+            const nextWidth = parsed.toString();
+            setCustomWidth(nextWidth);
+            if (nextWidth !== customWidth) {
+                trackEvent({
+                    event: 'option_change',
+                    option_name: 'custom_width',
+                    option_value: parsed,
+                    image_count: images.length,
+                });
+            }
         } else {
             setLocalWidth(customWidth);
         }
@@ -166,6 +215,19 @@ const FileControls = ({
         if (e.key === 'Enter') {
             e.preventDefault();
             applyWidth();
+        }
+    };
+
+    const commitQualityTracking = () => {
+        const currentPercent = Math.round(quality * 100);
+        if (currentPercent !== lastTrackedQualityRef.current) {
+            lastTrackedQualityRef.current = currentPercent;
+            trackEvent({
+                event: 'option_change',
+                option_name: 'quality',
+                option_value: currentPercent,
+                image_count: images.length,
+            });
         }
     };
 
@@ -269,7 +331,18 @@ const FileControls = ({
                         value={columns}
                         onChange={(e) => {
                             const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) setColumns(Math.max(1, Math.min(12, val)));
+                            if (!isNaN(val)) {
+                                const clamped = Math.max(1, Math.min(12, val));
+                                setColumns(clamped);
+                                if (clamped !== columns) {
+                                    trackEvent({
+                                        event: 'option_change',
+                                        option_name: 'columns',
+                                        option_value: clamped,
+                                        image_count: images.length,
+                                    });
+                                }
+                            }
                         }}
                     />
                 </label>
@@ -304,7 +377,19 @@ const FileControls = ({
                 />
             </label>
 
-            <details className="advanced-options">
+            <details
+                className="advanced-options"
+                onToggle={(e) => {
+                    const isOpen = e.currentTarget.open;
+                    if (isOpen === prevDetailsOpenRef.current) return;
+                    prevDetailsOpenRef.current = isOpen;
+                    trackEvent({
+                        event: 'advanced_options_toggle',
+                        is_open: isOpen,
+                        image_count: images.length,
+                    });
+                }}
+            >
                 <summary>Layout &amp; Export Options</summary>
                 <div className="advanced-body">
                     <label
@@ -317,7 +402,16 @@ const FileControls = ({
                             id="sizeMode"
                             value={sizeMode}
                             disabled={hasCustomWidth}
-                            onChange={(e) => setSizeMode(e.target.value as SizeMode)}
+                            onChange={(e) => {
+                                const nextSize = e.target.value as SizeMode;
+                                setSizeMode(nextSize);
+                                trackEvent({
+                                    event: 'option_change',
+                                    option_name: 'size_mode',
+                                    option_value: nextSize,
+                                    image_count: images.length,
+                                });
+                            }}
                         >
                             <option value="largest">Match largest</option>
                             <option value="smallest">Match smallest</option>
@@ -330,7 +424,16 @@ const FileControls = ({
                         <select
                             id="alignment"
                             value={alignment}
-                            onChange={(e) => setAlignment(e.target.value as Alignment)}
+                            onChange={(e) => {
+                                const nextAlign = e.target.value as Alignment;
+                                setAlignment(nextAlign);
+                                trackEvent({
+                                    event: 'option_change',
+                                    option_name: 'alignment',
+                                    option_value: nextAlign,
+                                    image_count: images.length,
+                                });
+                            }}
                         >
                             <option value="start">Start</option>
                             <option value="center">Center</option>
@@ -349,7 +452,16 @@ const FileControls = ({
                                 value={gap}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
-                                    setGap(isNaN(val) ? 0 : Math.max(0, Math.min(200, val)));
+                                    const nextGap = isNaN(val) ? 0 : Math.max(0, Math.min(200, val));
+                                    setGap(nextGap);
+                                    if (nextGap !== gap) {
+                                        trackEvent({
+                                            event: 'option_change',
+                                            option_name: 'gap',
+                                            option_value: nextGap,
+                                            image_count: images.length,
+                                        });
+                                    }
                                 }}
                             />
                         </label>
@@ -363,7 +475,16 @@ const FileControls = ({
                                 value={padding}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
-                                    setPadding(isNaN(val) ? 0 : Math.max(0, Math.min(200, val)));
+                                    const nextPad = isNaN(val) ? 0 : Math.max(0, Math.min(200, val));
+                                    setPadding(nextPad);
+                                    if (nextPad !== padding) {
+                                        trackEvent({
+                                            event: 'option_change',
+                                            option_name: 'padding',
+                                            option_value: nextPad,
+                                            image_count: images.length,
+                                        });
+                                    }
                                 }}
                             />
                         </label>
@@ -379,7 +500,14 @@ const FileControls = ({
                                 value={bgSelectValue}
                                 onChange={(e) => {
                                     const val = e.target.value;
-                                    setBackgroundColor(val === 'custom' ? '#1e293b' : val);
+                                    const nextBg = val === 'custom' ? '#1e293b' : val;
+                                    setBackgroundColor(nextBg);
+                                    trackEvent({
+                                        event: 'option_change',
+                                        option_name: 'background',
+                                        option_value: classifyBackground(nextBg),
+                                        image_count: images.length,
+                                    });
                                 }}
                             >
                                 <option value="transparent">Transparent</option>
@@ -394,6 +522,14 @@ const FileControls = ({
                                     aria-label="Custom background color"
                                     value={isPresetBg ? '#1e293b' : backgroundColor}
                                     onChange={(e) => setBackgroundColor(e.target.value)}
+                                    onBlur={() =>
+                                        trackEvent({
+                                            event: 'option_change',
+                                            option_name: 'background',
+                                            option_value: 'custom',
+                                            image_count: images.length,
+                                        })
+                                    }
                                 />
                             )}
                         </div>
@@ -404,7 +540,16 @@ const FileControls = ({
                         <select
                             id="exportFormat"
                             value={exportFormat}
-                            onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                            onChange={(e) => {
+                                const nextFormat = e.target.value as ExportFormat;
+                                setExportFormat(nextFormat);
+                                trackEvent({
+                                    event: 'option_change',
+                                    option_name: 'export_format',
+                                    option_value: formatExportType(nextFormat),
+                                    image_count: images.length,
+                                });
+                            }}
                         >
                             <option value="image/jpeg">JPEG (.jpg)</option>
                             <option value="image/png">PNG (.png)</option>
@@ -428,6 +573,9 @@ const FileControls = ({
                                 aria-valuetext={`${qualityPercent}%`}
                                 style={sliderStyle}
                                 onChange={(e) => setQuality(Number(e.target.value) / 100)}
+                                onPointerUp={commitQualityTracking}
+                                onKeyUp={commitQualityTracking}
+                                onBlur={commitQualityTracking}
                             />
                         </div>
                     )}

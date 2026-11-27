@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { resetAnalyticsState } from '../utils/analytics';
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
   class MockResizeObserver {
@@ -48,6 +49,8 @@ if (typeof HTMLDialogElement !== 'undefined') {
 }
 
 beforeEach(() => {
+  window.dataLayer = [];
+  resetAnalyticsState();
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     configurable: true,

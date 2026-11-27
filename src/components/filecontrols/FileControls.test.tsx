@@ -129,12 +129,21 @@ describe('FileControls', () => {
     expect(window.dataLayer).toContainEqual({
       event: 'orientation_change',
       selected_orientation: 'grid',
+      image_count: 0,
+      is_debug_mode: true,
     });
 
     rerender(<FileControls {...props} orientation="grid" />);
     const colInput = screen.getByLabelText('Columns:') as HTMLInputElement;
     fireEvent.change(colInput, { target: { value: '4' } });
     expect(setColumns).toHaveBeenCalledWith(4);
+    expect(window.dataLayer).toContainEqual({
+      event: 'option_change',
+      option_name: 'columns',
+      option_value: 4,
+      image_count: 0,
+      is_debug_mode: true,
+    });
   });
 
   it('updates advanced layout & export options and displays Copy live feedback without disabling Copy', async () => {

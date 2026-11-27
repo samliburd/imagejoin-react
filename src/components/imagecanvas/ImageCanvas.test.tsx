@@ -129,6 +129,14 @@ describe('ImageCanvas', () => {
     expect(
       screen.getByText(/Output exceeds typical browser canvas limits/i),
     ).toBeInTheDocument();
+    expect(window.dataLayer).toContainEqual({
+      event: 'canvas_limit_warning',
+      canvas_width: 17000,
+      canvas_height: 17000,
+      image_count: 1,
+      orientation: 'portrait',
+      is_debug_mode: true,
+    });
 
     const viewport = container.querySelector('.canvas-viewport');
     expect(viewport).toHaveClass('fit-size');
@@ -140,6 +148,13 @@ describe('ImageCanvas', () => {
       'aria-pressed',
       'true',
     );
+    expect(window.dataLayer).toContainEqual({
+      event: 'canvas_zoom_toggle',
+      zoom_mode: 'actual',
+      canvas_width: 17000,
+      canvas_height: 17000,
+      is_debug_mode: true,
+    });
   });
 
   it('falls back to high-smoothing ctx.drawImage when createImageBitmap rejects', async () => {

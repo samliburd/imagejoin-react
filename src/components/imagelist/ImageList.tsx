@@ -3,6 +3,7 @@ import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { type ImageItem } from '../../types';
+import { trackEvent } from '../../utils/analytics';
 
 const MOBILE_BREAKPOINT_QUERY = '(max-width: 600px)';
 
@@ -140,16 +141,41 @@ const ImageList = ({
     };
 
     const moveUp = (idx: number) => {
-        if (idx > 0) swapImages(idx, idx - 1);
+        if (idx > 0) {
+            swapImages(idx, idx - 1);
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'move_up',
+                image_count: images.length,
+            });
+        }
     };
 
     const moveDown = (idx: number) => {
-        if (idx < images.length - 1) swapImages(idx, idx + 1);
+        if (idx < images.length - 1) {
+            swapImages(idx, idx + 1);
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'move_down',
+                image_count: images.length,
+            });
+        }
     };
 
     const handleDragEnd: DragEndHandler = (event) => {
         if (event.canceled) return;
-        setImages((prevImages) => move(prevImages, event));
+        const nextImages = move(images, event);
+        const orderChanged =
+            nextImages.length === images.length &&
+            nextImages.some((item, index) => item.id !== images[index].id);
+        setImages(nextImages);
+        if (orderChanged) {
+            trackEvent({
+                event: 'image_list_action',
+                action_type: 'drag_reorder',
+                image_count: nextImages.length,
+            });
+        }
     };
 
     useEffect(() => {
