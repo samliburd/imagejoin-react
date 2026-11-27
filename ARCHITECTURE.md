@@ -98,7 +98,7 @@ imagejoin-react/
 | [`.oxlintrc.json`](./.oxlintrc.json)         | Enables `react`, `typescript`, and `oxc` lint plugins, enforcing `react/rules-of-hooks` (`error`) and `react/only-export-components` (`warn`).                                                                                         |
 | [`.yarnrc.yml`](./.yarnrc.yml)               | Configures Yarn 4 with `nodeLinker: node-modules` for Vite 8 compatibility.                                                                                                                                                            |
 | [`index.html`](./index.html)                 | Mounts `#root`, injects the Google Tag Manager (`GTM-M99M3C5P`) script and `<noscript>` fallback, and defines OpenGraph/Twitter/PWA metadata.                                                                                          |
-| [`.gitignore`](./.gitignore)                 | Excludes build artifacts (`dist/`), dependencies (`node_modules/`), Vitest cache (`.vitest`), local debug fixtures (`public/testimg`), and local workspace files (`.agents/`, `AGENTS.md`, `skills-lock.json`, `CLOUDFLARE_PAGES.md`). |
+| [`.gitignore`](./.gitignore)                 | Excludes build artifacts (`dist/`), dependencies (`node_modules/`), Vitest cache (`.vitest`), local debug fixtures (`public/testimg`), and local workspace files (`.agents/`, `AGENTS.md`, `skills-lock.json`, `CLOUDFLARE_PAGES.md`, `og-image-hires.png`). |
 
 ---
 
