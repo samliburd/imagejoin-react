@@ -17,6 +17,9 @@ interface SortableImageItemProps {
     isLast: boolean;
     onMoveUp: () => void;
     onMoveDown: () => void;
+    onRotate: () => void;
+    onFlip: () => void;
+    onRemove: () => void;
 }
 
 function SortableImageItem({
@@ -27,6 +30,9 @@ function SortableImageItem({
     isLast,
     onMoveUp,
     onMoveDown,
+    onRotate,
+    onFlip,
+    onRemove,
 }: SortableImageItemProps) {
     const { ref, isDragging } = useSortable({ id, index });
 
@@ -38,7 +44,7 @@ function SortableImageItem({
         >
             <button
                 type="button"
-                className={`up-arrow ${isFirst ? 'disabled' : ''}`}
+                className={`item-action-btn up-arrow ${isFirst ? 'disabled' : ''}`}
                 aria-label={`Move ${img.originalName} up`}
                 disabled={isFirst}
                 onClick={onMoveUp}
@@ -51,20 +57,53 @@ function SortableImageItem({
                     className="thumbnail-img"
                     src={img.thumbnailSrc}
                     alt={img.originalName}
+                    style={{
+                        transform: `${img.rotation ? `rotate(${img.rotation}deg)` : ''} ${img.flipH ? 'scaleX(-1)' : ''}`.trim() || undefined,
+                    }}
                     onContextMenu={(e) => e.preventDefault()}
                 />
                 <span className="thumbnail-label">{img.originalName}</span>
             </div>
 
-            <button
-                type="button"
-                className={`down-arrow ${isLast ? 'disabled' : ''}`}
-                aria-label={`Move ${img.originalName} down`}
-                disabled={isLast}
-                onClick={onMoveDown}
-            >
-                &darr;
-            </button>
+            <div className="item-actions">
+                <button
+                    type="button"
+                    className="item-action-btn rotate-btn"
+                    aria-label={`Rotate ${img.originalName} 90 degrees`}
+                    title="Rotate 90°"
+                    onClick={onRotate}
+                >
+                    &#8635;
+                </button>
+                <button
+                    type="button"
+                    className={`item-action-btn flip-btn ${img.flipH ? 'active' : ''}`}
+                    aria-label={`Flip ${img.originalName} horizontally`}
+                    aria-pressed={Boolean(img.flipH)}
+                    title="Flip horizontally"
+                    onClick={onFlip}
+                >
+                    &#8644;
+                </button>
+                <button
+                    type="button"
+                    className={`item-action-btn down-arrow ${isLast ? 'disabled' : ''}`}
+                    aria-label={`Move ${img.originalName} down`}
+                    disabled={isLast}
+                    onClick={onMoveDown}
+                >
+                    &darr;
+                </button>
+                <button
+                    type="button"
+                    className="item-action-btn remove-btn"
+                    aria-label={`Remove ${img.originalName}`}
+                    title="Remove image"
+                    onClick={onRemove}
+                >
+                    &times;
+                </button>
+            </div>
         </div>
     );
 }
@@ -72,11 +111,22 @@ function SortableImageItem({
 interface ImageListProps {
     images: ImageItem[];
     setImages: Dispatch<SetStateAction<ImageItem[]>>;
+    onRemoveImage: (id: string) => void;
+    onRotateImage: (id: string) => void;
+    onFlipImage: (id: string) => void;
+    onClearAll: () => void;
 }
 
 type DragEndHandler = NonNullable<ComponentProps<typeof DragDropProvider>['onDragEnd']>;
 
-const ImageList = ({ images, setImages }: ImageListProps) => {
+const ImageList = ({
+    images,
+    setImages,
+    onRemoveImage,
+    onRotateImage,
+    onFlipImage,
+    onClearAll,
+}: ImageListProps) => {
     const [helpText, setHelpText] = useState(() =>
         getHelpText(window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches),
     );
@@ -126,12 +176,20 @@ const ImageList = ({ images, setImages }: ImageListProps) => {
                             isLast={index === images.length - 1}
                             onMoveUp={() => moveUp(index)}
                             onMoveDown={() => moveDown(index)}
+                            onRotate={() => onRotateImage(img.id)}
+                            onFlip={() => onFlipImage(img.id)}
+                            onRemove={() => onRemoveImage(img.id)}
                         />
                     ))}
                 </div>
             </DragDropProvider>
 
-            <p id="helpText">{helpText}</p>
+            <div className="image-list-footer">
+                <p id="helpText">{helpText}</p>
+                <button type="button" className="clear-all-btn" onClick={onClearAll}>
+                    Clear all
+                </button>
+            </div>
         </div>
     );
 };

@@ -6,11 +6,39 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [react(), VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+          importScripts: ['share-target-sw.js'],
+      },
       manifest: {
           name: 'ImageJoin',
           short_name: 'ImageJoin',
           description: 'Tool to join two or more images using the Canvas API',
           theme_color: '#2f3b45',
+          background_color: '#2f3b45',
+          display: 'standalone',
+          file_handlers: [
+              {
+                  action: '/',
+                  accept: {
+                      'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'],
+                  },
+              },
+          ],
+          share_target: {
+              action: '/share-target',
+              method: 'POST',
+              enctype: 'multipart/form-data',
+              params: {
+                  title: 'title',
+                  text: 'text',
+                  files: [
+                      {
+                          name: 'images',
+                          accept: ['image/*'],
+                      },
+                  ],
+              },
+          },
           icons: [{
               "src": "pwa-64x64.png",
               "sizes": "64x64",

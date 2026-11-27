@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { ImageItem } from '../types';
+import type { ImageItem, Rotation } from '../types';
 
 export interface MockImageItemOptions {
   id?: string;
@@ -8,6 +8,8 @@ export interface MockImageItemOptions {
   originalName?: string;
   width?: number;
   height?: number;
+  rotation?: Rotation;
+  flipH?: boolean;
 }
 
 let idCounter = 0;
@@ -38,12 +40,21 @@ export function createMockImageItem(options: MockImageItemOptions = {}): ImageIt
     width,
     height,
     imgElement,
+    rotation: options.rotation ?? 0,
+    flipH: options.flipH ?? false,
   };
 }
 
 export interface MockCanvasContext {
   clearRect: ReturnType<typeof vi.fn>;
+  fillRect: ReturnType<typeof vi.fn>;
   drawImage: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+  restore: ReturnType<typeof vi.fn>;
+  translate: ReturnType<typeof vi.fn>;
+  rotate: ReturnType<typeof vi.fn>;
+  scale: ReturnType<typeof vi.fn>;
+  fillStyle: string;
   imageSmoothingEnabled: boolean;
   imageSmoothingQuality: ImageSmoothingQuality;
 }
@@ -55,7 +66,14 @@ export interface MockCanvasContext {
 export function createMockCanvasContext(dataUrl = 'data:image/jpeg;base64,mockJoinedImage') {
   const ctx: MockCanvasContext = {
     clearRect: vi.fn(),
+    fillRect: vi.fn(),
     drawImage: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    scale: vi.fn(),
+    fillStyle: '',
     imageSmoothingEnabled: false,
     imageSmoothingQuality: 'low',
   };
@@ -71,7 +89,7 @@ export function createMockCanvasContext(dataUrl = 'data:image/jpeg;base64,mockJo
   const toBlobSpy = vi
     .spyOn(HTMLCanvasElement.prototype, 'toBlob')
     .mockImplementation((callback: BlobCallback, type?: string) => {
-      callback(new Blob(['mock-jpeg'], { type: type ?? 'image/jpeg' }));
+      callback(new Blob(['mock-image'], { type: type ?? 'image/jpeg' }));
     });
 
   return { ctx, getContextSpy, toDataURLSpy, toBlobSpy };

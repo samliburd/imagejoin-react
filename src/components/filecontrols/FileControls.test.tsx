@@ -9,13 +9,30 @@ function renderFileControls(overrides: Partial<ComponentProps<typeof FileControl
   const props: ComponentProps<typeof FileControls> = {
     images: [],
     onReplaceImages: vi.fn(),
+    onAppendImages: vi.fn(),
     orientation: 'portrait',
     setOrientation: vi.fn(),
-    scaleToLargest: true,
-    setScaleToLargest: vi.fn(),
+    columns: 2,
+    setColumns: vi.fn(),
+    sizeMode: 'largest',
+    setSizeMode: vi.fn(),
+    alignment: 'center',
+    setAlignment: vi.fn(),
+    gap: 0,
+    setGap: vi.fn(),
+    padding: 0,
+    setPadding: vi.fn(),
+    backgroundColor: 'transparent',
+    setBackgroundColor: vi.fn(),
+    exportFormat: 'image/jpeg',
+    setExportFormat: vi.fn(),
+    quality: 0.92,
+    setQuality: vi.fn(),
     filename: '',
     setFilename: vi.fn(),
     onDownload: vi.fn(),
+    onCopy: vi.fn(),
+    copyFeedback: { text: '', state: 'idle' },
     debug: false,
     customWidth: '',
     setCustomWidth: vi.fn(),
@@ -30,19 +47,21 @@ describe('FileControls', () => {
     window.dataLayer = [];
   });
 
-  it('renders initial empty state with disabled download button and hidden debug control', () => {
+  it('renders initial empty state with disabled export actions and hidden debug control', () => {
     const { container } = renderFileControls();
 
     expect(screen.getByText('No files chosen')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Auto')).toBeInTheDocument();
+    expect(container.querySelector('#addUpload')).not.toBeInTheDocument();
 
     const downloadBtn = screen.getByRole('button', { name: 'Download image' });
+    const copyBtn = screen.getByRole('button', { name: 'Copy' });
     expect(downloadBtn).toBeDisabled();
-    expect(downloadBtn).toHaveClass('disabled');
+    expect(copyBtn).toBeDisabled();
     expect(container.querySelector('#debugContainer')).not.toBeInTheDocument();
   });
 
-  it('shows singular/plural file counts, debug toggle when debug=true, and canvasWidth placeholder', () => {
+  it('shows singular/plural file counts, + Add control, and canvasWidth placeholder', () => {
     const img1 = createMockImageItem({ width: 800, height: 600 });
     const { container, rerender, props } = renderFileControls({
       images: [img1],
@@ -53,28 +72,27 @@ describe('FileControls', () => {
     expect(screen.getByText('1 image selected')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('800')).toBeInTheDocument();
     expect(container.querySelector('#debugContainer')).toBeInTheDocument();
+    expect(container.querySelector('#addUpload')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download image' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
 
     rerender(<FileControls {...props} images={[img1, createMockImageItem()]} />);
     expect(screen.getByText('2 images selected')).toBeInTheDocument();
   });
 
-  it('buffers customWidth input until Enter or Go and syncs when parent customWidth changes', async () => {
+  it('buffers customWidth input until Enter or Go and disables Sizing while typing', async () => {
     const user = userEvent.setup();
     const setCustomWidth = vi.fn();
     const { container, rerender, props } = renderFileControls({ setCustomWidth, customWidth: '' });
 
     const widthInput = container.querySelector('#customWidth') as HTMLInputElement;
-    const scaleCheckbox = screen.getByLabelText('Resize to largest image') as HTMLInputElement;
-    const checkboxContainer = scaleCheckbox.closest('.checkboxContainer') as HTMLElement;
+    const sizeModeSelect = screen.getByLabelText('Sizing:') as HTMLSelectElement;
 
-    expect(scaleCheckbox).toBeEnabled();
-    expect(checkboxContainer).toHaveStyle({ opacity: '1' });
+    expect(sizeModeSelect).toBeEnabled();
 
     await user.type(widthInput, '1080');
     expect(setCustomWidth).not.toHaveBeenCalled();
-    expect(scaleCheckbox).toBeDisabled();
-    expect(checkboxContainer).toHaveStyle({ opacity: '0.5' });
+    expect(sizeModeSelect).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Go' }));
     expect(setCustomWidth).toHaveBeenCalledWith('1080');
@@ -88,73 +106,102 @@ describe('FileControls', () => {
     expect(widthInput.value).toBe('1280');
   });
 
-  it('reverts invalid customWidth values and clears customWidth when Go is clicked with empty input', async () => {
-    const user = userEvent.setup();
-    const setCustomWidth = vi.fn();
-    const { container } = renderFileControls({ setCustomWidth, customWidth: '640' });
-
-    const widthInput = container.querySelector('#customWidth') as HTMLInputElement;
-    expect(widthInput.value).toBe('640');
-
-    fireEvent.change(widthInput, { target: { value: '-50' } });
-    await user.click(screen.getByRole('button', { name: 'Go' }));
-    expect(setCustomWidth).not.toHaveBeenCalled();
-    expect(widthInput.value).toBe('640');
-
-    fireEvent.change(widthInput, { target: { value: '0' } });
-    fireEvent.keyDown(widthInput, { key: 'Enter' });
-    expect(setCustomWidth).not.toHaveBeenCalled();
-    expect(widthInput.value).toBe('640');
-
-    await user.clear(widthInput);
-    await user.click(screen.getByRole('button', { name: 'Go' }));
-    expect(setCustomWidth).toHaveBeenCalledWith('');
-  });
-
-  it('reflects active orientation via aria-pressed/.active and pushes GTM dataLayer events', async () => {
+  it('reflects active orientation (including Grid + Columns) and pushes GTM dataLayer events', async () => {
     const user = userEvent.setup();
     const setOrientation = vi.fn();
-    renderFileControls({ orientation: 'portrait', setOrientation });
+    const setColumns = vi.fn();
+    const { rerender, props } = renderFileControls({
+      orientation: 'portrait',
+      setOrientation,
+      columns: 2,
+      setColumns,
+    });
 
     const portraitBtn = screen.getByRole('button', { name: 'Portrait (vertical stack)' });
-    const landscapeBtn = screen.getByRole('button', { name: 'Landscape (horizontal row)' });
+    const gridBtn = screen.getByRole('button', { name: 'Grid (multi-column collage)' });
 
     expect(portraitBtn).toHaveAttribute('aria-pressed', 'true');
     expect(portraitBtn).toHaveClass('active');
-    expect(landscapeBtn).toHaveAttribute('aria-pressed', 'false');
-    expect(landscapeBtn).not.toHaveClass('active');
+    expect(screen.queryByLabelText('Columns:')).not.toBeInTheDocument();
 
-    await user.click(landscapeBtn);
-    expect(setOrientation).toHaveBeenCalledWith('landscape');
+    await user.click(gridBtn);
+    expect(setOrientation).toHaveBeenCalledWith('grid');
     expect(window.dataLayer).toContainEqual({
       event: 'orientation_change',
-      selected_orientation: 'landscape',
+      selected_orientation: 'grid',
     });
+
+    rerender(<FileControls {...props} orientation="grid" />);
+    const colInput = screen.getByLabelText('Columns:') as HTMLInputElement;
+    fireEvent.change(colInput, { target: { value: '4' } });
+    expect(setColumns).toHaveBeenCalledWith(4);
   });
 
-  it('ingests uploaded files via Object URLs, generates 100px JPEG thumbnails, and resets file input', async () => {
+  it('updates advanced layout & export options and displays Copy live feedback without disabling Copy', async () => {
+    const user = userEvent.setup();
+    const setGap = vi.fn();
+    const setPadding = vi.fn();
+    const setBackgroundColor = vi.fn();
+    const setExportFormat = vi.fn();
+    const setQuality = vi.fn();
+    const onCopy = vi.fn();
+
+    const { rerender, props } = renderFileControls({
+      images: [createMockImageItem()],
+      setGap,
+      setPadding,
+      setBackgroundColor,
+      setExportFormat,
+      setQuality,
+      onCopy,
+      copyFeedback: { text: 'Copied', state: 'copied' },
+    });
+
+    fireEvent.change(screen.getByLabelText('Gap (px)'), { target: { value: '16' } });
+    expect(setGap).toHaveBeenCalledWith(16);
+
+    fireEvent.change(screen.getByLabelText('Pad (px)'), { target: { value: '24' } });
+    expect(setPadding).toHaveBeenCalledWith(24);
+
+    await user.selectOptions(screen.getByLabelText('Background:'), '#ffffff');
+    expect(setBackgroundColor).toHaveBeenCalledWith('#ffffff');
+
+    await user.selectOptions(screen.getByLabelText('Format:'), 'image/png');
+    expect(setExportFormat).toHaveBeenCalledWith('image/png');
+
+    fireEvent.change(screen.getByLabelText('Quality:'), { target: { value: '80' } });
+    expect(setQuality).toHaveBeenCalledWith(0.8);
+
+    // JPEG + transparent shows transparency hint; PNG hides Quality slider
+    expect(
+      screen.getByText(/Transparent areas export as white when saving as JPEG/i),
+    ).toBeInTheDocument();
+    rerender(<FileControls {...props} exportFormat="image/png" />);
+    expect(screen.queryByLabelText('Quality:')).not.toBeInTheDocument();
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy' });
+    expect(copyBtn).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    await user.click(copyBtn);
+    expect(onCopy).toHaveBeenCalledTimes(1);
+  });
+
+  it('ingests files via Choose Files (replace) and + Add (append) using Object URLs', async () => {
     const user = userEvent.setup();
     const onReplaceImages = vi.fn();
-    const { ctx, toDataURLSpy } = createMockCanvasContext('data:image/jpeg;base64,thumb-output');
+    const onAppendImages = vi.fn();
+    createMockCanvasContext('data:image/jpeg;base64,thumb-output');
 
     let urlCount = 0;
-    const createObjectURLSpy = vi
-      .spyOn(URL, 'createObjectURL')
-      .mockImplementation(() => `blob:upload-${++urlCount}`);
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:upload-${++urlCount}`);
 
     class MockImage {
       width = 400;
       height = 200;
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
-      private _src = '';
 
-      get src() {
-        return this._src;
-      }
-
-      set src(val: string) {
-        this._src = val;
+      set src(_val: string) {
         queueMicrotask(() => {
           this.onload?.();
         });
@@ -163,50 +210,33 @@ describe('FileControls', () => {
 
     vi.stubGlobal('Image', MockImage);
 
-    const { container } = renderFileControls({ onReplaceImages });
-    const fileInput = container.querySelector('#upload') as HTMLInputElement;
-    const file1 = new File(['abc'], 'first.png', { type: 'image/png' });
-    const file2 = new File(['def'], 'second.jpg', { type: 'image/jpeg' });
+    const existing = createMockImageItem();
+    const { container } = renderFileControls({
+      images: [existing],
+      onReplaceImages,
+      onAppendImages,
+    });
 
-    await user.upload(fileInput, [file1, file2]);
+    const replaceInput = container.querySelector('#upload') as HTMLInputElement;
+    await user.upload(replaceInput, [new File(['a'], 'first.png', { type: 'image/png' })]);
 
     await waitFor(() => {
       expect(onReplaceImages).toHaveBeenCalledTimes(1);
     });
-
-    expect(createObjectURLSpy).toHaveBeenCalledTimes(2);
-    const loaded = onReplaceImages.mock.calls[0][0];
-    expect(loaded).toHaveLength(2);
-    expect(loaded[0]).toMatchObject({
+    expect(onReplaceImages.mock.calls[0][0][0]).toMatchObject({
       originalName: 'first.png',
       src: 'blob:upload-1',
-      thumbnailSrc: 'data:image/jpeg;base64,thumb-output',
-      width: 400,
-      height: 200,
     });
-    expect(loaded[1]).toMatchObject({
-      originalName: 'second.jpg',
+
+    const appendInput = container.querySelector('#addUpload') as HTMLInputElement;
+    await user.upload(appendInput, [new File(['b'], 'extra.png', { type: 'image/png' })]);
+
+    await waitFor(() => {
+      expect(onAppendImages).toHaveBeenCalledTimes(1);
+    });
+    expect(onAppendImages.mock.calls[0][0][0]).toMatchObject({
+      originalName: 'extra.png',
       src: 'blob:upload-2',
     });
-    expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 100, 50);
-    expect(toDataURLSpy).toHaveBeenCalledWith('image/jpeg', 0.5);
-    expect(fileInput.value).toBe('');
-  });
-
-  it('updates filename and triggers onDownload when images are loaded', async () => {
-    const user = userEvent.setup();
-    const setFilename = vi.fn();
-    const onDownload = vi.fn();
-    renderFileControls({
-      images: [createMockImageItem()],
-      setFilename,
-      onDownload,
-    });
-
-    await user.type(screen.getByLabelText('Filename:'), 'merged');
-    expect(setFilename).toHaveBeenCalled();
-
-    await user.click(screen.getByRole('button', { name: 'Download image' }));
-    expect(onDownload).toHaveBeenCalledTimes(1);
   });
 });

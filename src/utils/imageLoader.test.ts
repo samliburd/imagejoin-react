@@ -1,8 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
-import { generateThumbnail, loadImage, loadImageFiles, revokeImageUrls } from './imageLoader';
+import {
+  filterImageFiles,
+  generateThumbnail,
+  loadImage,
+  loadImageFiles,
+  revokeImageUrls,
+} from './imageLoader';
 import { createMockCanvasContext, createMockImageItem } from '../test/fixtures';
 
 describe('imageLoader', () => {
+  it('filters image files by MIME type or filename extension', () => {
+    const files = [
+      new File(['1'], 'photo.png', { type: 'image/png' }),
+      new File(['2'], 'notes.txt', { type: 'text/plain' }),
+      new File(['3'], 'fallback.webp', { type: '' }),
+    ];
+
+    expect(filterImageFiles(files).map((f) => f.name)).toEqual(['photo.png', 'fallback.webp']);
+  });
+
   it('downscales thumbnails to maxWidth without upscaling smaller images', () => {
     const { ctx, toDataURLSpy } = createMockCanvasContext('data:image/jpeg;base64,thumb');
 
@@ -30,7 +46,11 @@ describe('imageLoader', () => {
     expect(generateThumbnail(img, 100)).toBe('blob:fallback-src');
   });
 
-  it('loads image files via Object URLs and revokes batch URLs on decode failure', async () => {
+  it('returns empty array when loadImageFiles receives no valid images and revokes URLs on failure', async () => {
+    expect(await loadImageFiles([new File(['x'], 'doc.pdf', { type: 'application/pdf' })])).toEqual(
+      [],
+    );
+
     createMockCanvasContext('data:image/jpeg;base64,thumb');
     let urlIdx = 0;
     const createSpy = vi
@@ -68,7 +88,7 @@ describe('imageLoader', () => {
     expect(revokeSpy).toHaveBeenCalledWith('blob:batch-2');
   });
 
-  it('loads a single image source via loadImage', async () => {
+  it('loads a single image source via loadImage with default rotation and flipH', async () => {
     createMockCanvasContext('data:image/jpeg;base64,single-thumb');
 
     class OkImage {
@@ -90,6 +110,8 @@ describe('imageLoader', () => {
       originalName: '1.webp',
       width: 200,
       height: 100,
+      rotation: 0,
+      flipH: false,
     });
   });
 

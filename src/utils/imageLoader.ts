@@ -1,5 +1,16 @@
 import { type ImageItem } from '../types';
 
+const IMAGE_EXTENSION_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i;
+
+/**
+ * Filters a file collection down to image files by MIME type or filename extension.
+ */
+export function filterImageFiles(files: FileList | readonly File[]): File[] {
+    return Array.from(files).filter(
+        (file) => file.type.startsWith('image/') || IMAGE_EXTENSION_RE.test(file.name),
+    );
+}
+
 /**
  * Renders a downsampled JPEG thumbnail (default 100px max width, quality 0.5)
  * on an ephemeral canvas so the sortable list avoids full-resolution DOM paints.
@@ -34,6 +45,8 @@ export function loadImage(src: string, name: string): Promise<ImageItem> {
                 width: img.width,
                 height: img.height,
                 imgElement: img,
+                rotation: 0,
+                flipH: false,
             });
         };
         img.onerror = () => reject(new Error(`Failed to load: ${name}`));
@@ -46,7 +59,9 @@ export function loadImage(src: string, name: string): Promise<ImageItem> {
  * in the batch if any file fails to decode.
  */
 export async function loadImageFiles(files: FileList | readonly File[]): Promise<ImageItem[]> {
-    const fileList = Array.from(files);
+    const fileList = filterImageFiles(files);
+    if (fileList.length === 0) return [];
+
     const objectUrls = fileList.map((file) => URL.createObjectURL(file));
 
     try {

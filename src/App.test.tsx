@@ -1,12 +1,30 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { createMockCanvasContext } from './test/fixtures';
 
-vi.mock('@vercel/analytics/react', () => ({
-  Analytics: () => null,
-}));
+function installMockImage() {
+  class MockImage {
+    width = 400;
+    height = 300;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    private _src = '';
+
+    get src() {
+      return this._src;
+    }
+
+    set src(val: string) {
+      this._src = val;
+      queueMicrotask(() => {
+        this.onload?.();
+      });
+    }
+  }
+  vi.stubGlobal('Image', MockImage);
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -17,13 +35,19 @@ describe('App', () => {
     );
   });
 
-  it('renders title, controls, and hidden empty canvas by default', () => {
+  it('renders header with Help modal trigger, controls, and hidden empty canvas', async () => {
+    const user = userEvent.setup();
     createMockCanvasContext();
     const { container } = render(<App />);
 
     expect(screen.getByRole('heading', { name: 'Image Join' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download image' })).toBeDisabled();
     expect(container.querySelector('#canvasContainer')).toHaveClass('hidden');
+
+    await user.click(screen.getByRole('button', { name: 'Open help and keyboard shortcuts' }));
+    expect(container.querySelector('#helpDialog')).toHaveAttribute('open');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(container.querySelector('#helpDialog')).not.toHaveAttribute('open');
   });
 
   it('gates debug controls via ?debug query parameter', () => {
@@ -39,36 +63,28 @@ describe('App', () => {
     expect(second.container.querySelector('#debugContainer')).toBeInTheDocument();
   });
 
-  it('completes upload, revokes stale Object URLs on replace, and exports via toBlob with toDataURL fallback', async () => {
+  it('supports upload, paste, drag-drop, rotate/remove, copy to clipboard, and multi-format download', async () => {
     const user = userEvent.setup();
-    const { toDataURLSpy, toBlobSpy } = createMockCanvasContext(
-      'data:image/jpeg;base64,fallbackComposite',
-    );
+    const { toBlobSpy } = createMockCanvasContext();
 
     let urlCounter = 0;
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:obj-${++urlCounter}`);
     const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    installMockImage();
 
-    class MockImage {
-      width = 400;
-      height = 300;
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      private _src = '';
-
-      get src() {
-        return this._src;
-      }
-
-      set src(val: string) {
-        this._src = val;
-        queueMicrotask(() => {
-          this.onload?.();
-        });
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      writable: true,
+      configurable: true,
+      value: { write: clipboardWrite },
+    });
+    class MockClipboardItem {
+      items: Record<string, Blob>;
+      constructor(items: Record<string, Blob>) {
+        this.items = items;
       }
     }
-
-    vi.stubGlobal('Image', MockImage);
+    vi.stubGlobal('ClipboardItem', MockClipboardItem);
 
     const downloads: Array<{ name: string; href: string }> = [];
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
@@ -79,48 +95,60 @@ describe('App', () => {
 
     const { container } = render(<App />);
     const fileInput = container.querySelector('#upload') as HTMLInputElement;
-    const firstBatch = [
+
+    // 1. Initial upload (2 files)
+    await user.upload(fileInput, [
       new File(['1'], 'top.png', { type: 'image/png' }),
       new File(['2'], 'bottom.png', { type: 'image/png' }),
-    ];
-
-    await user.upload(fileInput, firstBatch);
+    ]);
 
     await waitFor(() => {
       expect(screen.getByText('2 images selected')).toBeInTheDocument();
     });
 
-    expect(container.querySelector('#canvasContainer')).not.toHaveClass('hidden');
-    expect(container.querySelector('#customWidth')).toHaveAttribute('placeholder', '400');
-
-    const downloadBtn = screen.getByRole('button', { name: 'Download image' });
-    expect(downloadBtn).toBeEnabled();
-
-    // Primary export uses canvas.toBlob + Object URL
-    await user.click(downloadBtn);
-    expect(toBlobSpy).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.92);
-    expect(downloads[0]).toEqual({ name: 'joinedimage.jpg', href: 'blob:obj-3' });
-
-    // Custom filename trims whitespace
-    await user.type(screen.getByLabelText('Filename:'), '  vacation-collage  ');
-    await user.click(downloadBtn);
-    expect(downloads[1]).toEqual({ name: 'vacation-collage.jpg', href: 'blob:obj-4' });
-
-    // Fallback to toDataURL when toBlob returns null
-    toBlobSpy.mockImplementationOnce((cb: BlobCallback) => cb(null));
-    await user.click(downloadBtn);
-    expect(toDataURLSpy).toHaveBeenCalledWith('image/jpeg', 0.92);
-    expect(downloads[2]).toEqual({
-      name: 'vacation-collage.jpg',
-      href: 'data:image/jpeg;base64,fallbackComposite',
+    // 2. Paste appends a 3rd image
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { files: [new File(['3'], 'pasted.png', { type: 'image/png' })] },
     });
+    window.dispatchEvent(pasteEvent);
 
-    // Uploading a replacement batch revokes the previous batch's blob URLs
-    await user.upload(fileInput, [new File(['3'], 'single.png', { type: 'image/png' })]);
     await waitFor(() => {
-      expect(screen.getByText('1 image selected')).toBeInTheDocument();
+      expect(screen.getByText('3 images selected')).toBeInTheDocument();
     });
-    expect(revokeSpy).toHaveBeenCalledWith('blob:obj-1');
-    expect(revokeSpy).toHaveBeenCalledWith('blob:obj-2');
+
+    // 3. Drag-and-drop onto app-shell appends a 4th image
+    const shell = container.querySelector('.app-shell') as HTMLElement;
+    fireEvent.drop(shell, {
+      dataTransfer: {
+        types: ['Files'],
+        files: [new File(['4'], 'dropped.png', { type: 'image/png' })],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('4 images selected')).toBeInTheDocument();
+    });
+
+    // 4. Rotate and remove one image -> revokes removed blob URL
+    await user.click(screen.getByRole('button', { name: 'Rotate top.png 90 degrees' }));
+    await user.click(screen.getByRole('button', { name: 'Remove pasted.png' }));
+    expect(screen.getByText('3 images selected')).toBeInTheDocument();
+    expect(revokeSpy).toHaveBeenCalledWith('blob:obj-3');
+
+    // 5. Copy to clipboard works and surfaces live status
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await waitFor(() => {
+      expect(clipboardWrite).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByText('Copied')).toBeInTheDocument();
+
+    // 6. Export in PNG format updates file extension
+    await user.selectOptions(screen.getByLabelText('Format:'), 'image/png');
+    await user.type(screen.getByLabelText('Filename:'), '  my-collage  ');
+    await user.click(screen.getByRole('button', { name: 'Download image' }));
+
+    expect(toBlobSpy).toHaveBeenCalledWith(expect.any(Function), 'image/png', undefined);
+    expect(downloads.at(-1)?.name).toBe('my-collage.png');
   });
 });

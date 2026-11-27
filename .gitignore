@@ -7,6 +7,7 @@ createComponent.js
 .agents/
 AGENTS.md
 skills-lock.json
+CLOUDFLARE_PAGES.md
 
 # Logs
 logs
