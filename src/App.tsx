@@ -1,5 +1,6 @@
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.scss';
+import CookieBanner from './components/consent/CookieBanner';
 import Controls from './components/controls/Controls';
 import FileControls, { type CopyFeedback } from './components/filecontrols/FileControls';
 import HelpDialog from './components/help/HelpDialog';
@@ -681,6 +682,7 @@ function App() {
                     });
                 }}
             />
+            <CookieBanner />
         </div>
     );
 }

@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>ImageJoin — Combine, Stack &amp; Arrange Images Online</title>
+    <!-- Google Consent Mode v2 Initialization -->
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+            window.dataLayer.push(arguments);
+        }
+        window.gtag = gtag;
+        (function () {
+            var match = document.cookie.match(/(^|;\s*)ij_cookie_consent=([^;]+)/);
+            var isGranted = (match ? match[2] : null) === 'granted';
+            var status = isGranted ? 'granted' : 'denied';
+            gtag('consent', 'default', {
+                ad_storage: status,
+                ad_user_data: status,
+                ad_personalization: status,
+                analytics_storage: status,
+                wait_for_update: 500,
+            });
+        })();
+    </script>
+    <!-- End Google Consent Mode v2 Initialization -->
     <script>
         (function (w, d, s, l) {
             w[l] = w[l] || [];

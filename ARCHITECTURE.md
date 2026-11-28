@@ -63,6 +63,9 @@ imagejoin-react/
     │   ├── fixtures.ts               # Shared ImageItem, Canvas 2D, and matchMedia test helpers
     │   └── setup.ts                  # Vitest DOM setup, ResizeObserver/dialog stubs, and cleanup hooks
     ├── components/
+    │   ├── consent/
+    │   │   ├── CookieBanner.tsx      # "Can I set cookies?" banner wired to Google Consent Mode v2 & GTM dataLayer
+    │   │   └── CookieBanner.test.tsx # Consent default/update, 24h cookie, localStorage fallback, and banner tests
     │   ├── controls/
     │   │   └── Controls.tsx          # Composition sidebar layout wrapper (#controls.controls)
     │   ├── filecontrols/
@@ -86,6 +89,7 @@ imagejoin-react/
         ├── analytics.test.ts         # Unit tests for file-type extraction, snapshots, and stale-key clearing
         ├── canvasLayout.ts           # Pure Portrait/Landscape/Grid layout math, gap/padding, and limit checks
         ├── canvasLayout.test.ts      # Unit tests for Portrait/Landscape/Grid/Rotation layout formulas
+        ├── consent.ts                # 24-hour ij_cookie_consent cookie read/write helpers
         ├── imageLoader.ts            # Object URL file ingestion (Promise.allSettled partial recovery), thumbnails, and revocation
         └── imageLoader.test.ts       # Unit tests for file filtering, thumbnails, Object URLs, partial failure, and cleanup
 ```
@@ -240,6 +244,7 @@ flowchart LR
     App --> ImageCanvas["src/components/imagecanvas/ImageCanvas.tsx"]
     App --> HelpDialog["src/components/help/HelpDialog.tsx"]
     App --> SeoInfoSection["src/components/info/SeoInfoSection.tsx"]
+    App --> CookieBanner["src/components/consent/CookieBanner.tsx"]
     FileControls --> Icons["src/components/icons/Icons.tsx"]
     ImageList --> Icons
     ImageCanvas --> Icons
@@ -326,6 +331,7 @@ All GTM telemetry flows through [`trackEvent()`](./src/utils/analytics.ts#L178-L
 | `canvas_limit_warning`    | First render transition where `exceedsLimits` becomes `true` (> 16,384 px edge or > 268 MP area) in [`ImageCanvas.tsx`](./src/components/imagecanvas/ImageCanvas.tsx#L76).                  | `canvas_width`, `canvas_height`, `image_count`, `orientation`                                                                                                                                                              |
 | `help_dialog_toggle`      | Opening (`#helpButton`) or closing (`Close`, `Esc`, or backdrop light-dismiss) `#helpDialog` in [`App.tsx`](./src/App.tsx#L544-L677).                                                        | `action` (`'open' \| 'close'`), `image_count`                                                                                                                                                                              |
 | `faq_toggle`              | Expanding or collapsing an FAQ `<details>` entry in [`SeoInfoSection.tsx`](./src/components/info/SeoInfoSection.tsx#L15).                                                                    | `faq_topic` (`'privacy' \| 'supported_formats' \| 'jpeg_transparency'`), `is_open` (`boolean`)                                                                                                                             |
+| `cookie_consent_update`   | Clicking **Yes** or **No** in [`CookieBanner.tsx`](./src/components/consent/CookieBanner.tsx#L29-L58).                                                                                       | `consent_status`, `consent_analytics`, `consent_marketing` (`'granted' \| 'denied'`)                                                                                                                                      |
 | `image_export`            | Clicking **Download image** in [`App.tsx`](./src/App.tsx#L388) using [`buildExportSnapshot()`](./src/utils/analytics.ts#L123-L171).                                                          | `export_method: 'download'`, `orientation`, `grid_columns?`, `size_mode`, `custom_width_px?`, `alignment`, `gap_px`, `padding_px`, `background_type`, `export_format`, `export_quality?`, `image_count`, `file_types`, `rotated_image_count`, `flipped_image_count`, `canvas_width`, `canvas_height`, `exceeds_canvas_limits`, `has_custom_filename`, `output_size_kb?` |
 | `image_copy`              | Clicking **Copy** to write PNG to system clipboard in [`App.tsx`](./src/App.tsx#L412) using [`buildExportSnapshot()`](./src/utils/analytics.ts#L123-L171).                                   | `export_method: 'clipboard'`, `copy_success` (`boolean`), plus all [`ExportSettingsSnapshot`](./src/types.ts#L76-L96) fields listed above                                                                                  |
 

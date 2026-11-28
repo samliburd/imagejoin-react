@@ -170,6 +170,15 @@ export interface FaqToggleEvent {
     is_open: boolean;
 }
 
+export type CookieConsentStatus = 'granted' | 'denied';
+
+export interface CookieConsentUpdateEvent {
+    event: 'cookie_consent_update';
+    consent_status: CookieConsentStatus;
+    consent_analytics: CookieConsentStatus;
+    consent_marketing: CookieConsentStatus;
+}
+
 export interface ImageExportEvent extends ExportSettingsSnapshot {
     event: 'image_export';
     export_method: 'download';
@@ -193,6 +202,7 @@ export type AnalyticsEvent =
     | FileIngestErrorEvent
     | EmptyDropzoneBrowseEvent
     | FaqToggleEvent
+    | CookieConsentUpdateEvent
     | ImageExportEvent
     | ImageCopyEvent;
 
@@ -213,6 +223,7 @@ export interface LaunchParams {
 declare global {
     interface Window {
         dataLayer?: DataLayerEntry[];
+        gtag?: (...args: unknown[]) => void;
         launchQueue?: {
             setConsumer: (consumer: (launchParams: LaunchParams) => void) => void;
         };
