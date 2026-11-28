@@ -61,7 +61,7 @@ body {
 
 .app-brand {
   text-align: center;
-  padding: 0 2.75rem;
+  padding: 0 7rem;
 }
 
 #title {
@@ -78,13 +78,30 @@ body {
   color: var(--muted-text);
 }
 
-.help-btn {
-  @include button-styles;
-  @include focus-ring;
+.header-actions {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.theme-toggle-btn {
+  @include button-styles;
+  @include focus-ring;
+  height: 2.25rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.help-btn {
+  @include button-styles;
+  @include focus-ring;
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid var(--accent);
@@ -94,10 +111,6 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
-  &:active:not(:disabled) {
-    transform: translateY(-50%) scale(0.95);
-  }
 }
 
 .app-banner {
@@ -1332,9 +1345,253 @@ dialog#helpDialog::backdrop {
 }
 
 @media screen and (max-width: 600px) {
+  .app-header {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .app-brand {
+    padding: 0;
+  }
+
+  .header-actions {
+    position: static;
+    transform: none;
+  }
+
   .cookie-banner {
     left: 0.75rem;
     right: 0.75rem;
     bottom: 0.75rem;
+  }
+}
+
+/* ==========================================================================
+   Neo-Brutalist Theme Override (toggled via body.theme-brutal)
+   ========================================================================== */
+body.theme-brutal {
+  --primary-bg: #f4f4f0;
+  --secondary-bg: #ffffff;
+  --accent: #000000;
+  --text-color: #000000;
+  --muted-text: #111111;
+  --button-bg: #ffffff;
+  --button-hover: #ff6b9d;
+  --primary-action-bg: #ffe66d;
+  --primary-action-hover: #2ecc71;
+  --border-radius: 0px;
+  --shadow: 6px 6px 0px 0px #000000;
+  --font-stack: 'Space Grotesk', sans-serif;
+  --control-width: 340px;
+  --color-brutal-pink: #ff6b9d;
+  --color-brutal-yellow: #ffe66d;
+  --color-brutal-green: #2ecc71;
+
+  background-color: #f4f4f0;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxyZWN0IHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgZmlsbD0iI2Y0ZjRmMCIvPgo8Y2lyY2xlIGN4PSIyIiBjeT0iMiIgcj0iMSIgZmlsbD0iI2QxZDFkMSIvPgo8L3N2Zz4=");
+  color: #000000;
+  font-family: 'Space Grotesk', sans-serif;
+  text-transform: uppercase;
+  font-weight: 700;
+  color-scheme: light;
+
+  .app-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #title {
+    display: inline-block;
+    font-family: 'Archivo Black', sans-serif;
+    font-weight: 400;
+    letter-spacing: 2px;
+    background-color: var(--color-brutal-pink);
+    color: #000000;
+    border: 4px solid #000000;
+    box-shadow: 4px 4px 0px 0px #000000;
+    padding: 0.35rem 1rem;
+    margin-bottom: 0.65rem;
+    transform: rotate(-1deg);
+  }
+
+  .app-tagline {
+    display: inline-block;
+    background-color: var(--color-brutal-yellow);
+    color: #000000;
+    border: 3px solid #000000;
+    box-shadow: 4px 4px 0px 0px #000000;
+    padding: 0.25rem 0.75rem;
+    font-weight: 700;
+  }
+
+  /* Primary structural surfaces: 4px solid black border + 6px hard shadow */
+  #FileControls,
+  #canvasContainer,
+  #ImageList,
+  .empty-dropzone,
+  .seo-block,
+  .seo-faq details,
+  .cookie-banner,
+  .app-banner {
+    background-color: #ffffff;
+    color: #000000;
+    border: 4px solid #000000;
+    border-radius: 0;
+    box-shadow: 6px 6px 0px 0px #000000;
+  }
+
+  .seo-block p,
+  .seo-faq details p {
+    font-weight: 500;
+
+    strong {
+      font-weight: 700;
+    }
+  }
+
+  .app-banner-error {
+    background-color: #dc2626;
+    color: #ffffff;
+  }
+
+  /* Buttons & interactive tiles: sharp corners + physical press physics */
+  button,
+  .file-btn,
+  .add-files-btn,
+  .orientationButton,
+  .empty-dropzone-cta,
+  .theme-toggle-btn,
+  .help-btn,
+  .cookie-btn,
+  .banner-undo-btn,
+  #FileControls button,
+  #FileControls .file-btn,
+  #FileControls .add-files-btn,
+  #FileControls .orientationButton,
+  #download,
+  #copyImage {
+    border-radius: 0 !important;
+    border: 2px solid #000000 !important;
+    background-color: #ffffff;
+    color: #000000 !important;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    box-shadow: 4px 4px 0px 0px #000000;
+    transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-brutal-pink) !important;
+      color: #000000 !important;
+      box-shadow: 2px 2px 0px 0px #000000;
+      transform: translate(2px, 2px);
+    }
+
+    &:active:not(:disabled) {
+      box-shadow: 0px 0px 0px 0px #000000;
+      transform: translate(4px, 4px);
+    }
+  }
+
+  .add-files-btn span {
+    color: inherit !important;
+  }
+
+  .file-label {
+    color: #000000 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .theme-toggle-btn.active,
+  #FileControls .orientationButton.active,
+  .orientationButton.active,
+  .cookie-btn-yes {
+    background-color: var(--color-brutal-green) !important;
+    color: #000000 !important;
+  }
+
+  #download,
+  #FileControls .file-btn,
+  .empty-dropzone-cta,
+  .dialog-close-btn {
+    background-color: var(--color-brutal-yellow) !important;
+    color: #000000 !important;
+  }
+
+  .cookie-btn-no,
+  .item-remove-btn:hover:not(:disabled) {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+  }
+
+  .image-thumbnail {
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    border-radius: 0;
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  input[type='text'],
+  input[type='number'],
+  select,
+  .advanced-options-toggle summary {
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    border-radius: 0;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.4rem;
+    min-width: 0;
+  }
+
+  .textInput,
+  .selectRow {
+    gap: 0.5rem;
+
+    .label-text {
+      flex: 0 0 auto;
+      font-size: 0.78rem;
+    }
+  }
+
+  .bg-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+
+    select {
+      flex: 1;
+      width: 100%;
+    }
+  }
+
+  .slider-group {
+    font-size: 0.78rem;
+  }
+
+  #helpDialog {
+    background-color: var(--color-brutal-green);
+    color: #000000;
+    border: 4px solid #000000;
+    border-radius: 0;
+    box-shadow: 6px 6px 0px 0px #000000;
+
+    &::backdrop {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    h2 {
+      font-family: 'Archivo Black', sans-serif;
+      color: #ffffff;
+      text-shadow: 4px 4px 0px #000000;
+      letter-spacing: 0.08em;
+    }
   }
 }

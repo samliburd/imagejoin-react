@@ -271,4 +271,39 @@ describe('App', () => {
     });
     expect(JSON.stringify(window.dataLayer)).not.toContain('notes.txt');
   });
+
+  it('defaults to Neo-Brutalist theme and toggles to boring styling', async () => {
+    const user = userEvent.setup();
+    localStorage.clear();
+    document.body.classList.remove('theme-brutal');
+
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      meta.setAttribute('content', '#f4f4f0');
+      document.head.appendChild(meta);
+    }
+
+    render(<App />);
+    const toggleBtn = screen.getByRole('button', { name: 'Switch to boring styling' });
+    expect(toggleBtn).toHaveTextContent('Boring styling');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(document.body).toHaveClass('theme-brutal');
+    expect(meta.getAttribute('content')).toBe('#f4f4f0');
+
+    await user.click(toggleBtn);
+    expect(toggleBtn).toHaveTextContent('Take me back');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(document.body).not.toHaveClass('theme-brutal');
+    expect(localStorage.getItem('ij_theme')).toBe('default');
+    expect(meta.getAttribute('content')).toBe('#2f3b45');
+
+    await user.click(toggleBtn);
+    expect(toggleBtn).toHaveTextContent('Boring styling');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(document.body).toHaveClass('theme-brutal');
+    expect(localStorage.getItem('ij_theme')).toBe('brutal');
+    expect(meta.getAttribute('content')).toBe('#f4f4f0');
+  });
 });

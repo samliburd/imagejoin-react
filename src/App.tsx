@@ -32,6 +32,8 @@ const FORMAT_EXTENSION: Record<ExportFormat, string> = {
     'image/webp': 'webp',
 };
 
+const THEME_STORAGE_KEY = 'ij_theme';
+
 const SHARED_CACHE = 'imagejoin-shared-files';
 
 function triggerDownload(href: string, downloadName: string): void {
@@ -74,6 +76,13 @@ function App() {
     const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 0, height: 0 });
     const [customWidth, setCustomWidth] = useState<string>('');
     const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
+    const [isBrutalTheme, setIsBrutalTheme] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem(THEME_STORAGE_KEY) !== 'default';
+        } catch {
+            return true;
+        }
+    });
     const [isFileDragging, setIsFileDragging] = useState<boolean>(false);
     const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>({ text: '', state: 'idle' });
     const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -91,6 +100,19 @@ function App() {
     useEffect(() => {
         imagesRef.current = images;
     }, [images]);
+
+    useEffect(() => {
+        document.body.classList.toggle('theme-brutal', isBrutalTheme);
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) {
+            themeMeta.setAttribute('content', isBrutalTheme ? '#f4f4f0' : '#2f3b45');
+        }
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, isBrutalTheme ? 'brutal' : 'default');
+        } catch {
+            // Ignore storage errors in restricted browsing modes
+        }
+    }, [isBrutalTheme]);
 
     const discardPendingUndo = useCallback(() => {
         if (undoTimerRef.current !== null) {
@@ -534,23 +556,36 @@ function App() {
                         Combine, stack &amp; grid images privately in your browser
                     </p>
                 </div>
-                <button
-                    type="button"
-                    id="helpButton"
-                    className="help-btn"
-                    aria-label="Open help and keyboard shortcuts"
-                    title="Help & shortcuts"
-                    onClick={() => {
-                        setIsHelpOpen(true);
-                        trackEvent({
-                            event: 'help_dialog_toggle',
-                            action: 'open',
-                            image_count: images.length,
-                        });
-                    }}
-                >
-                    ?
-                </button>
+                <div className="header-actions">
+                    <button
+                        type="button"
+                        id="themeToggleButton"
+                        className={`theme-toggle-btn${!isBrutalTheme ? ' active' : ''}`}
+                        aria-pressed={!isBrutalTheme}
+                        aria-label={isBrutalTheme ? 'Switch to boring styling' : 'Take me back to Neo-Brutalist styling'}
+                        title={isBrutalTheme ? 'Switch to boring styling' : 'Take me back to Neo-Brutalist styling'}
+                        onClick={() => setIsBrutalTheme((prev) => !prev)}
+                    >
+                        {isBrutalTheme ? 'Boring styling' : 'Take me back'}
+                    </button>
+                    <button
+                        type="button"
+                        id="helpButton"
+                        className="help-btn"
+                        aria-label="Open help and keyboard shortcuts"
+                        title="Help & shortcuts"
+                        onClick={() => {
+                            setIsHelpOpen(true);
+                            trackEvent({
+                                event: 'help_dialog_toggle',
+                                action: 'open',
+                                image_count: images.length,
+                            });
+                        }}
+                    >
+                        ?
+                    </button>
+                </div>
             </header>
 
             {errorBanner && (
